@@ -220,3 +220,9 @@ One line per improvement cycle: date, what changed, why.
   toggles between the two states. Research: the list → confirm →
   restore pattern from git stash / cfgd / stash-away. 1 new e2e test;
   87 total.
+- **2026-09-23 · cycle 18 — v0.3.0 released.** Version bumped from 0.2.0,
+  tagged, release workflow built all 5 platform binaries (linux amd64/arm64,
+  macos amd64/arm64, windows). Homebrew formula updated with new sha256
+  hashes. crates.io validated via cargo package (139 KB) but publish requires
+  a token the owner must provide: `cargo login <TOKEN>` + `cargo publish`.
+  Release notes enumerate all changes since v0.2.0.
