@@ -61,6 +61,17 @@ impl EnvOverrides {
     }
 }
 
+/// How a tool parks a server without removing it: the config field name and
+/// the boolean value that means "off". Only set where the tool documents or
+/// observably persists the flag (Codex `enabled`, Cline and Roo Code
+/// `disabled`, Zed `enabled`).
+pub(crate) struct DisableFlag {
+    /// Config key on the server entry.
+    pub key: &'static str,
+    /// The value of `key` that parks the server.
+    pub off_when: bool,
+}
+
 /// Static description of one tool's MCP config file.
 pub(crate) struct ToolSpec {
     /// Canonical id.
@@ -71,6 +82,9 @@ pub(crate) struct ToolSpec {
     pub format: Format,
     /// Whether `mcpmedic` may edit this file (opencode is read-only for now).
     pub writable: bool,
+    /// The tool's per-server disable switch, where documented. `enable` and
+    /// `disable` refuse to run for tools without one.
+    pub disable: Option<DisableFlag>,
     /// Resolve the config path relative to a home directory.
     pub path: fn(&Path, &EnvOverrides) -> PathBuf,
 }
@@ -86,6 +100,7 @@ static REGISTRY: &[ToolSpec] = &[
         display: "Claude Code",
         format: Format::McpServers,
         writable: true,
+        disable: None,
         path: |home, env| {
             env.claude_config_dir
                 .clone()
@@ -97,6 +112,7 @@ static REGISTRY: &[ToolSpec] = &[
         display: "Claude Desktop",
         format: Format::McpServers,
         writable: true,
+        disable: None,
         path: |home, _| {
             if cfg!(target_os = "macos") {
                 home.join("Library/Application Support/Claude/claude_desktop_config.json")
@@ -112,6 +128,7 @@ static REGISTRY: &[ToolSpec] = &[
         display: "Cursor",
         format: Format::McpServers,
         writable: true,
+        disable: None,
         path: |home, _| home.join(".cursor").join("mcp.json"),
     },
     ToolSpec {
@@ -119,6 +136,7 @@ static REGISTRY: &[ToolSpec] = &[
         display: "Windsurf",
         format: Format::McpServers,
         writable: true,
+        disable: None,
         path: |home, _| {
             if cfg!(windows) {
                 home.join("AppData/Roaming/Codeium/windsurf/mcp_config.json")
@@ -132,6 +150,7 @@ static REGISTRY: &[ToolSpec] = &[
         display: "VS Code",
         format: Format::Vscode,
         writable: true,
+        disable: None,
         path: |home, _| home.join(".vscode").join("mcp.json"),
     },
     ToolSpec {
@@ -139,6 +158,10 @@ static REGISTRY: &[ToolSpec] = &[
         display: "Zed",
         format: Format::Zed,
         writable: true,
+        disable: Some(DisableFlag {
+            key: "enabled",
+            off_when: false,
+        }),
         path: |home, _| {
             if cfg!(windows) {
                 home.join("AppData/Roaming/Zed/settings.json")
@@ -152,6 +175,7 @@ static REGISTRY: &[ToolSpec] = &[
         display: "Gemini CLI",
         format: Format::McpServers,
         writable: true,
+        disable: None,
         path: |home, _| home.join(".gemini").join("settings.json"),
     },
     ToolSpec {
@@ -159,6 +183,10 @@ static REGISTRY: &[ToolSpec] = &[
         display: "Codex CLI",
         format: Format::CodexToml,
         writable: true,
+        disable: Some(DisableFlag {
+            key: "enabled",
+            off_when: false,
+        }),
         path: |home, env| {
             env.codex_home
                 .clone()
@@ -171,6 +199,10 @@ static REGISTRY: &[ToolSpec] = &[
         display: "Cline",
         format: Format::McpServers,
         writable: true,
+        disable: Some(DisableFlag {
+            key: "disabled",
+            off_when: true,
+        }),
         path: |home, _| {
             vscode_global_storage(home)
                 .join("saoudrizwan.claude-dev/settings/cline_mcp_settings.json")
@@ -181,6 +213,10 @@ static REGISTRY: &[ToolSpec] = &[
         display: "Roo Code",
         format: Format::McpServers,
         writable: true,
+        disable: Some(DisableFlag {
+            key: "disabled",
+            off_when: true,
+        }),
         path: |home, _| {
             vscode_global_storage(home)
                 .join("rooveterinaryinc.roo-cline/settings/mcp_settings.json")
@@ -193,6 +229,7 @@ static REGISTRY: &[ToolSpec] = &[
         // Read-only for now: opencode configs are JSONC (comments are lost on
         // a JSON rewrite) and the v2 layout (`mcp.servers`) is still moving.
         writable: false,
+        disable: None,
         path: |home, _| {
             let json = home.join(".config/opencode/opencode.json");
             let jsonc = home.join(".config/opencode/opencode.jsonc");
@@ -246,6 +283,40 @@ mod tests {
         assert_eq!(registry().len(), 11);
         for spec in registry() {
             assert!(!spec.display.is_empty());
+        }
+    }
+
+    #[test]
+    fn disable_flags_are_set_only_where_documented() {
+        let by_id = |id: ToolId| registry().iter().find(|s| s.id == id).unwrap();
+        assert_eq!(
+            by_id(ToolId::Codex).disable.as_ref().unwrap().key,
+            "enabled"
+        );
+        assert!(!by_id(ToolId::Codex).disable.as_ref().unwrap().off_when);
+        assert_eq!(
+            by_id(ToolId::Cline).disable.as_ref().unwrap().key,
+            "disabled"
+        );
+        assert!(by_id(ToolId::Cline).disable.as_ref().unwrap().off_when);
+        assert_eq!(
+            by_id(ToolId::RooCode).disable.as_ref().unwrap().key,
+            "disabled"
+        );
+        assert_eq!(by_id(ToolId::Zed).disable.as_ref().unwrap().key, "enabled");
+        for id in [
+            ToolId::Cursor,
+            ToolId::ClaudeCode,
+            ToolId::ClaudeDesktop,
+            ToolId::Windsurf,
+            ToolId::Vscode,
+            ToolId::GeminiCli,
+            ToolId::Opencode,
+        ] {
+            assert!(
+                by_id(id).disable.is_none(),
+                "{id:?} must not claim an undocumented flag"
+            );
         }
     }
 

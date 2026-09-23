@@ -2,6 +2,7 @@
 //! automatic backup and applied with an atomic write (tmp file + rename) so a
 //! crash can never leave a half-written config behind.
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -40,6 +41,8 @@ pub(crate) struct LoadedConfig {
     pub raw: RawDoc,
     /// Normalized servers.
     pub servers: Servers,
+    /// Names of servers parked by their tool's disable flag.
+    pub disabled: BTreeSet<String>,
     /// Entry-level problems found while parsing (shown by `doctor`).
     pub problems: Vec<String>,
     /// Whether `mcpmedic` will agree to edit this file.
@@ -70,9 +73,14 @@ pub(crate) fn load(spec: &ToolSpec, home: &Path, env: &EnvOverrides) -> ConfigSt
         return match contents.parse::<toml_edit::DocumentMut>() {
             Ok(doc) => {
                 let (servers, problems) = format::toml_servers(&doc);
+                let disabled = spec
+                    .disable
+                    .as_ref()
+                    .map_or_else(BTreeSet::new, |flag| format::toml_disabled(flag, &doc));
                 ConfigState::Loaded(Box::new(LoadedConfig {
                     raw: RawDoc::Toml(doc),
                     servers,
+                    disabled,
                     problems,
                     editable: true,
                 }))
@@ -83,9 +91,13 @@ pub(crate) fn load(spec: &ToolSpec, home: &Path, env: &EnvOverrides) -> ConfigSt
     match serde_json::from_str::<Value>(&contents) {
         Ok(doc) => {
             let (servers, problems) = read_json_servers(spec.format, &doc);
+            let disabled = spec.disable.as_ref().map_or_else(BTreeSet::new, |flag| {
+                format::json_disabled(flag, spec.format, &doc)
+            });
             ConfigState::Loaded(Box::new(LoadedConfig {
                 raw: RawDoc::Json(doc),
                 servers,
+                disabled,
                 problems,
                 editable: spec.writable,
             }))
@@ -98,9 +110,13 @@ pub(crate) fn load(spec: &ToolSpec, home: &Path, env: &EnvOverrides) -> ConfigSt
             match serde_json::from_str::<Value>(&stripped) {
                 Ok(doc) => {
                     let (servers, problems) = read_json_servers(spec.format, &doc);
+                    let disabled = spec.disable.as_ref().map_or_else(BTreeSet::new, |flag| {
+                        format::json_disabled(flag, spec.format, &doc)
+                    });
                     ConfigState::Loaded(Box::new(LoadedConfig {
                         raw: RawDoc::Json(doc),
                         servers,
+                        disabled,
                         problems,
                         editable: false,
                     }))

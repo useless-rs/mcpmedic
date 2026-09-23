@@ -119,4 +119,18 @@ One line per improvement cycle: date, what changed, why.
   validation demo also exposed a `diff` bug (identical URLs printed as
   "`url` vs `url`" when only headers differed); `diff` now names the
   differing headers, with a regression test.
+- **2026-09-23 · cycle 8 — `enable` / `disable` without removal.** Parking a
+  server now uses each tool's own documented disable switch, set only where
+  research found one: Codex `enabled = false` (official config reference),
+  Zed `"enabled": false` (the toggle's persisted shape, confirmed in Zed's
+  tracker), Cline and Roo Code `"disabled": true` (official docs). Tools
+  without a documented switch — Cursor, the Claude tools, Windsurf, Gemini
+  CLI, and VS Code, whose enabled state lives outside `mcp.json` — refuse
+  with a pointer to `rm`, keeping mcpmedic's strict evidence bar. `list` and
+  `show` mark parked servers `(off)`, and `doctor` treats a parked server as
+  intentional: a parked dead command is not a finding, a resumed one is
+  flagged again. Every mutation is atomic with an automatic backup. Known
+  gap: `sync`/`export` don't carry the flag (the normalized model is
+  transport-only) — parked state stays tool-local until the model grows a
+  state field. 8 new tests, 75 total.
 

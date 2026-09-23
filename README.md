@@ -49,6 +49,10 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🔀 **`diff`** — see exactly which servers two tools disagree about
 - 🧬 **`sync`** — additive merge from one tool to another (never deletes;
   `--force` overwrites drifted entries)
+- 🅿️ **`enable` / `disable`** — park a server without removing it, using the
+  tool's own documented disable switch (Codex and Zed `enabled`, Cline and
+  Roo Code `disabled`); parked servers are marked `(off)` in `list`, and
+  `doctor` knows a parked server is intentional
 - 🪡 **Surgical edits** — `add`/`rm` write the *exact* dialect each tool
   expects, preserve every unrelated key, use atomic `write+rename`, and back up
   the previous file to `~/.mcpmedic/backups/` first
@@ -57,7 +61,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **67 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
+- ✅ **75 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
 
 ## Supported tools
 
@@ -177,6 +181,7 @@ mcpmedic completions fish  > ~/.config/fish/completions/mcpmedic.fish           
 | `diff <a> <b>` | Server drift between two tools |
 | `add <name> --to <t> ...` | Add a stdio (`--command ... -- args`) or remote (`--url`) server |
 | `rm <name> --from <t>` | Remove one server |
+| `enable` / `disable` <name> --from <t> | Park or resume a server without removing it, using the tool's own documented disable switch (`--dry-run` supported) |
 | `sync --from <a> --to <b>` | Additive merge; `--force`, `--names`, `--dry-run` supported |
 | `export [--out <file>]` | Dump everything to portable JSON |
 | `import <file> [--to <t>]` | Restore an export (per-tool sections or flat `servers` map) |
@@ -228,8 +233,8 @@ improvement cycle; log in [`CONTRIBUTING.md`](CONTRIBUTING.md#improvement-log).
 | 1 | ~~Shell completions~~ (`mcpmedic completions bash\|zsh\|fish\|powershell`) | 4 | 2 | L | ✅ cycle 2 |
 | 2 | ~~`doctor --fix` safe auto-repairs~~ (VS Code `type`, Zed legacy, remote `type` spellings) | 4 | 3 | M | ✅ cycle 6 |
 | 3 | ~~Per-tool remote-transport dialects end-to-end~~ (read `httpUrl`/`serverUrl`, write each tool's exact remote shape) | 4 | 3 | M | ✅ cycle 7 |
-| 4 | `enable` / `disable` servers without removal (Codex `enabled`, opencode `enabled: false`) | 3 | 3 | L | **next up** |
-| 5 | Project-scoped configs (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`) | 4 | 4 | M | planned |
+| 4 | ~~`enable` / `disable` servers without removal~~ (Codex/Zed `enabled`, Cline/Roo `disabled`) | 3 | 3 | L | ✅ cycle 8 |
+| 5 | Project-scoped configs (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`) | 4 | 4 | M | **next up** |
 | 6 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | planned |
 | 7 | More tools: Warp, Kiro, JetBrains, TRAE, Antigravity | 3 | 2 | L | planned |
 | 8 | Social preview PNG upload (SVG ready in `docs/brand/`) | 2 | 1 | L | needs repo owner |

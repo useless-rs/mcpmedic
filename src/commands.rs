@@ -1,5 +1,6 @@
 //! Command implementations: the glue between the CLI and the engine.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -86,6 +87,16 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
             from,
             dry_run,
         } => cmd_rm(&ctx, &name, &from, dry_run),
+        Cmd::Disable {
+            name,
+            from,
+            dry_run,
+        } => cmd_set_enabled(&ctx, &name, &from, false, dry_run),
+        Cmd::Enable {
+            name,
+            from,
+            dry_run,
+        } => cmd_set_enabled(&ctx, &name, &from, true, dry_run),
         Cmd::Sync {
             from,
             to,
@@ -145,6 +156,7 @@ fn load_mutable(ctx: &Ctx, spec: &'static ToolSpec) -> Result<(LoadedConfig, boo
                     LoadedConfig {
                         raw,
                         servers: Servers::new(),
+                        disabled: BTreeSet::new(),
                         problems: Vec::new(),
                         editable: true,
                     },
@@ -341,9 +353,14 @@ fn cmd_list(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
                     "COMMAND / URL".to_owned(),
                 ]];
                 for (name, transport) in &cfg.servers {
+                    let kind = if cfg.disabled.contains(name) {
+                        format!("{} (off)", transport.kind())
+                    } else {
+                        transport.kind().to_owned()
+                    };
                     rows.push(vec![
                         name.clone(),
-                        transport.kind().to_owned(),
+                        kind,
                         report::truncate(&transport.summary(), 58),
                     ]);
                 }
@@ -368,11 +385,11 @@ fn cmd_list(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
 }
 
 fn cmd_show(ctx: &Ctx, name: &str) -> ExitCode {
-    let mut hits: Vec<(&'static ToolSpec, Transport)> = Vec::new();
+    let mut hits: Vec<(&'static ToolSpec, Transport, bool)> = Vec::new();
     for spec in registry::registry() {
         if let ConfigState::Loaded(cfg) = ctx.load(spec) {
             if let Some(transport) = cfg.servers.get(name) {
-                hits.push((spec, transport.clone()));
+                hits.push((spec, transport.clone(), cfg.disabled.contains(name)));
             }
         }
     }
@@ -389,10 +406,15 @@ fn cmd_show(ctx: &Ctx, name: &str) -> ExitCode {
         "TRANSPORT".to_owned(),
         "CONFIG".to_owned(),
     ]];
-    for (spec, transport) in &hits {
+    for (spec, transport, off) in &hits {
+        let kind = if *off {
+            format!("{} (off)", transport.kind())
+        } else {
+            transport.kind().to_owned()
+        };
         rows.push(vec![
             spec.id.as_str().to_owned(),
-            transport.kind().to_owned(),
+            kind,
             report::truncate(&transport.summary(), 58),
         ]);
     }
@@ -752,6 +774,57 @@ fn cmd_rm(ctx: &Ctx, name: &str, from: &str, dry_run: bool) -> ExitCode {
     let verb = if dry_run { "would remove" } else { "removed" };
     println!(
         "  {} `{name}` {verb} from {}",
+        report::glyph_ok(),
+        spec.display
+    );
+    println!("      {}", display_path(&ctx.path(spec), &ctx.home));
+    match commit(ctx, spec, &cfg.raw, dry_run) {
+        Ok(Some(backup)) => println!("      backup: {}", backup.display()),
+        Ok(None) => {}
+        Err(e) => return fail(&e),
+    }
+    ExitCode::SUCCESS
+}
+
+fn cmd_set_enabled(ctx: &Ctx, name: &str, from: &str, enable: bool, dry_run: bool) -> ExitCode {
+    let Ok(spec) = resolve(from) else {
+        return fail(&format!("unknown tool `{from}`"));
+    };
+    let Some(flag) = spec.disable.as_ref() else {
+        return fail(&format!(
+            "{} has no documented per-server disable switch — use `mcpmedic rm {name} --from {}`",
+            spec.display,
+            spec.id.as_str()
+        ));
+    };
+    let (mut cfg, _fresh) = match load_mutable(ctx, spec) {
+        Ok(pair) => pair,
+        Err(e) => return fail(&e),
+    };
+    if !cfg.servers.contains_key(name) {
+        return fail(&format!("`{name}` is not configured in {}", spec.display));
+    }
+
+    let off = !enable;
+    let changed = match &mut cfg.raw {
+        RawDoc::Json(doc) => format::set_json_disabled(flag, spec.format, doc, name, off),
+        RawDoc::Toml(doc) => match format::set_toml_disabled(flag, doc, name, off) {
+            Ok(found) => found,
+            Err(e) => return fail(&e),
+        },
+    };
+    if !changed {
+        return fail(&format!("`{name}` is not configured in {}", spec.display));
+    }
+
+    let (verb, state) = match (enable, dry_run) {
+        (true, false) => ("resumed", "on"),
+        (true, true) => ("would resume", "on"),
+        (false, false) => ("parked", "off"),
+        (false, true) => ("would park", "off"),
+    };
+    println!(
+        "  {} `{name}` {verb} in {} ({state})",
         report::glyph_ok(),
         spec.display
     );

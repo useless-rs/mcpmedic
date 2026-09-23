@@ -698,6 +698,104 @@ fn add_remote_uses_and_reads_back_each_tools_dialect() {
 }
 
 #[test]
+fn disable_parks_servers_and_doctor_skips_them() {
+    let home = temp_home("disable");
+    let cmd = ubiquitous_command();
+    write(
+        &home,
+        zed_settings_rel(),
+        &format!(
+            r#"{{"theme": "One Dark", "context_servers": {{"parked": {{"command": "/no/such/binary", "enabled": false}}, "live": {{"command": "{cmd}"}}}}}}"#
+        ),
+    );
+
+    // A parked server with a dead command is intentional, not a finding.
+    let out = run(&home, &["doctor"]);
+    assert_eq!(out.status.code(), Some(0), "{}", stdout(&out));
+
+    // Parked rows are marked in listings.
+    let out = run(&home, &["list", "--tool", "zed"]);
+    assert!(
+        stdout(&out).contains("(off)"),
+        "parked rows are marked: {}",
+        stdout(&out)
+    );
+
+    // Park the live one via mcpmedic: config kept, flag written.
+    let out = run(&home, &["disable", "live", "--from", "zed"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let zed: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(zed_settings_rel())).unwrap())
+            .unwrap();
+    assert_eq!(zed["theme"], "One Dark", "unrelated keys must survive");
+    assert_eq!(zed["context_servers"]["live"]["enabled"], false);
+    assert!(
+        zed["context_servers"]["live"]["command"].is_string(),
+        "the config is kept, not removed"
+    );
+
+    // Resume the parked one; its dead command becomes a finding again.
+    let out = run(&home, &["enable", "parked", "--from", "zed"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let zed: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(zed_settings_rel())).unwrap())
+            .unwrap();
+    assert_eq!(zed["context_servers"]["parked"]["enabled"], true);
+    let out = run(&home, &["doctor"]);
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "the resumed dead command must be flagged again: {}",
+        stdout(&out)
+    );
+
+    let backups = std::fs::read_dir(home.join(".mcpmedic/backups"))
+        .unwrap()
+        .count();
+    assert_eq!(backups, 2, "one automatic backup per mutation");
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
+fn disable_parks_codex_servers_preserving_toml_comments() {
+    let home = temp_home("disable-codex");
+    write(
+        &home,
+        ".codex/config.toml",
+        "# profile comment\nmodel = \"gpt-5.2\"\n\n[mcp_servers.svc]\ncommand = \"node\"\n",
+    );
+    let out = run(&home, &["disable", "svc", "--from", "codex"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let toml = std::fs::read_to_string(home.join(".codex/config.toml")).unwrap();
+    assert!(toml.contains("# profile comment"));
+    assert!(toml.contains("enabled = false"));
+    assert!(toml.contains("[mcp_servers.svc]"));
+    assert!(toml.contains("command = \"node\""));
+
+    let out = run(&home, &["enable", "svc", "--from", "codex"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    assert!(
+        std::fs::read_to_string(home.join(".codex/config.toml"))
+            .unwrap()
+            .contains("enabled = true")
+    );
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
+fn disable_refuses_tools_without_a_documented_flag() {
+    let home = sample_home("disable-refuse");
+    let out = run(&home, &["disable", "context7", "--from", "cursor"]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(
+        stderr(&out).contains("no documented per-server disable switch"),
+        "got: {}",
+        stderr(&out)
+    );
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn backup_command_copies_configs() {
     let home = sample_home("backup");
     let out = run(&home, &["backup"]);

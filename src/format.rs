@@ -2,13 +2,13 @@
 //! [`model::Transport`] for reading, and rendered back into the tool's own
 //! dialect for writing — never the other way around.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Map, Value, json};
 use toml_edit::{Array, DocumentMut, Item, Table, TableLike, Value as TomlValue};
 
 use crate::model::{Servers, Transport};
-use crate::registry::ToolId;
+use crate::registry::{DisableFlag, ToolId};
 
 /// Config file dialects.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -312,6 +312,48 @@ pub(crate) fn remove_json_entry(format: Format, doc: &mut Value, name: &str) -> 
     servers.remove(name).is_some()
 }
 
+/// Names of servers currently parked by their tool's disable flag.
+pub(crate) fn json_disabled(flag: &DisableFlag, format: Format, doc: &Value) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    let Some(key) = format.servers_key() else {
+        return out;
+    };
+    let Some(Value::Object(servers)) = doc.get(key) else {
+        return out;
+    };
+    for (name, entry) in servers {
+        if let Value::Object(obj) = entry {
+            if obj.get(flag.key).and_then(Value::as_bool) == Some(flag.off_when) {
+                out.insert(name.clone());
+            }
+        }
+    }
+    out
+}
+
+/// Park or resume a server by writing its disable flag, preserving every
+/// other field of the entry. Returns whether the named server exists.
+pub(crate) fn set_json_disabled(
+    flag: &DisableFlag,
+    format: Format,
+    doc: &mut Value,
+    name: &str,
+    off: bool,
+) -> bool {
+    let Some(key) = format.servers_key() else {
+        return false;
+    };
+    let Some(Value::Object(servers)) = doc.get_mut(key) else {
+        return false;
+    };
+    let Some(Value::Object(obj)) = servers.get_mut(name) else {
+        return false;
+    };
+    let value = if off { flag.off_when } else { !flag.off_when };
+    obj.insert(flag.key.into(), json!(value));
+    true
+}
+
 /// Per-tool spelling of the remote-transport `type` field. `None` for tools
 /// that infer the transport from the URL field (Cursor, Windsurf, Gemini CLI)
 /// or handle it elsewhere (VS Code, Zed, Codex, opencode).
@@ -349,7 +391,12 @@ fn is_pure_remote(obj: &Map<String, Value>) -> bool {
 /// Scan a raw JSON document for issues that only exist per dialect, e.g. VS
 /// Code requiring a `type` on every entry, or remote entries missing the
 /// `type` spelling their tool can actually read.
-pub(crate) fn json_raw_issues(tool: ToolId, format: Format, doc: &Value) -> Vec<String> {
+pub(crate) fn json_raw_issues(
+    tool: ToolId,
+    format: Format,
+    doc: &Value,
+    disabled: &BTreeSet<String>,
+) -> Vec<String> {
     let mut issues = Vec::new();
     let Some(key) = format.servers_key() else {
         return issues;
@@ -359,6 +406,9 @@ pub(crate) fn json_raw_issues(tool: ToolId, format: Format, doc: &Value) -> Vec<
     };
     for (name, entry) in servers {
         if name == "servers" {
+            continue;
+        }
+        if disabled.contains(name) {
             continue;
         }
         let Value::Object(obj) = entry else {
@@ -652,6 +702,62 @@ pub(crate) fn remove_toml_entry(doc: &mut DocumentMut, name: &str) -> Result<boo
     }
 }
 
+/// Names of `[mcp_servers.<name>]` tables parked by the tool's disable flag.
+pub(crate) fn toml_disabled(flag: &DisableFlag, doc: &DocumentMut) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    let Some(item) = doc.get("mcp_servers") else {
+        return out;
+    };
+    let Some(table) = table_like(item) else {
+        return out;
+    };
+    for (name, entry) in table.iter() {
+        if let Some(entry) = table_like(entry) {
+            let parked = entry
+                .get(flag.key)
+                .and_then(|item| item.as_value())
+                .and_then(TomlValue::as_bool)
+                == Some(flag.off_when);
+            if parked {
+                out.insert(name.to_string());
+            }
+        }
+    }
+    out
+}
+
+/// Park or resume a server by writing its disable flag, preserving the rest
+/// of the document (including comments). Returns whether the server exists.
+pub(crate) fn set_toml_disabled(
+    flag: &DisableFlag,
+    doc: &mut DocumentMut,
+    name: &str,
+    off: bool,
+) -> Result<bool, String> {
+    let root = doc.as_table_mut();
+    let Some(servers) = root.get_mut("mcp_servers") else {
+        return Ok(false);
+    };
+    let Item::Table(tbl) = servers else {
+        return Err("`mcp_servers` is an inline table; refusing to edit it".into());
+    };
+    let Some(entry) = tbl.get_mut(name) else {
+        return Ok(false);
+    };
+    let value = if off { flag.off_when } else { !flag.off_when };
+    match entry {
+        Item::Table(t) => {
+            t.insert(flag.key, Item::Value(TomlValue::from(value)));
+            Ok(true)
+        }
+        Item::Value(TomlValue::InlineTable(t)) => {
+            t.insert(flag.key, TomlValue::from(value));
+            Ok(true)
+        }
+        _ => Err(format!("server `{name}`: entry is not a table")),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // JSONC tolerance
 // ---------------------------------------------------------------------------
@@ -837,6 +943,94 @@ mod tests {
     }
 
     #[test]
+    fn disable_flags_roundtrip_in_json() {
+        let roo = DisableFlag {
+            key: "disabled",
+            off_when: true,
+        };
+        let mut doc = json!({"mcpServers": {"x": {"command": "n", "disabled": true}}});
+        let parked: BTreeSet<String> = ["x".to_owned()].into_iter().collect();
+        assert_eq!(json_disabled(&roo, Format::McpServers, &doc), parked);
+        assert!(set_json_disabled(
+            &roo,
+            Format::McpServers,
+            &mut doc,
+            "x",
+            false
+        ));
+        assert_eq!(doc["mcpServers"]["x"]["disabled"], json!(false));
+        assert!(json_disabled(&roo, Format::McpServers, &doc).is_empty());
+        assert!(set_json_disabled(
+            &roo,
+            Format::McpServers,
+            &mut doc,
+            "x",
+            true
+        ));
+        assert_eq!(doc["mcpServers"]["x"]["disabled"], json!(true));
+        assert!(!set_json_disabled(
+            &roo,
+            Format::McpServers,
+            &mut doc,
+            "missing",
+            true
+        ));
+
+        let zed = DisableFlag {
+            key: "enabled",
+            off_when: false,
+        };
+        let mut doc = json!({"context_servers": {"y": {"command": "n"}}});
+        assert!(json_disabled(&zed, Format::Zed, &doc).is_empty());
+        assert!(set_json_disabled(&zed, Format::Zed, &mut doc, "y", true));
+        assert_eq!(doc["context_servers"]["y"]["enabled"], json!(false));
+        assert_eq!(
+            json_disabled(&zed, Format::Zed, &doc),
+            ["y".to_owned()].into_iter().collect::<BTreeSet<_>>()
+        );
+    }
+
+    #[test]
+    fn disable_flags_roundtrip_in_toml_preserving_comments() {
+        let codex = DisableFlag {
+            key: "enabled",
+            off_when: false,
+        };
+        let src = "# keep me\nmodel = \"gpt\"\n\n[mcp_servers.svc]\ncommand = \"node\"\n";
+        let mut doc: DocumentMut = src.parse().unwrap();
+        assert!(toml_disabled(&codex, &doc).is_empty());
+        assert!(set_toml_disabled(&codex, &mut doc, "svc", true).unwrap());
+        let out = doc.to_string();
+        assert!(out.contains("enabled = false"));
+        assert!(out.contains("# keep me"));
+        assert_eq!(
+            toml_disabled(&codex, &doc),
+            ["svc".to_owned()].into_iter().collect::<BTreeSet<_>>()
+        );
+        assert!(set_toml_disabled(&codex, &mut doc, "svc", false).unwrap());
+        assert!(doc.to_string().contains("enabled = true"));
+        assert!(!set_toml_disabled(&codex, &mut doc, "missing", true).unwrap());
+    }
+
+    #[test]
+    fn raw_issues_skip_parked_servers() {
+        let mut parked = BTreeSet::new();
+        parked.insert("parked".to_owned());
+        let doc = json!({
+            "mcpServers": {
+                "parked": {"url": "https://x"},
+                "live": {"url": "https://x"}
+            }
+        });
+        let issues = json_raw_issues(ToolId::ClaudeCode, Format::McpServers, &doc, &parked);
+        assert_eq!(issues.len(), 1);
+        assert!(
+            issues[0].contains("live"),
+            "only the live entry is flagged: {issues:?}"
+        );
+    }
+
+    #[test]
     fn remote_entries_are_written_in_each_tools_dialect() {
         let remote = Transport::Remote {
             url: "https://x/mcp".into(),
@@ -883,7 +1077,7 @@ mod tests {
         ] {
             let doc = json!({"mcpServers": {"written": entry}});
             assert!(
-                json_raw_issues(tool, Format::McpServers, &doc).is_empty(),
+                json_raw_issues(tool, Format::McpServers, &doc, &BTreeSet::new()).is_empty(),
                 "doctor must not flag the dialect mcpmedic writes"
             );
         }
@@ -901,7 +1095,7 @@ mod tests {
     fn vscode_raw_issues_flags_missing_type() {
         let doc =
             json!({"servers": {"nope": {"command": "x"}, "ok": {"type": "stdio", "command": "y"}}});
-        let issues = json_raw_issues(ToolId::Vscode, Format::Vscode, &doc);
+        let issues = json_raw_issues(ToolId::Vscode, Format::Vscode, &doc, &BTreeSet::new());
         assert_eq!(issues.len(), 1);
         assert!(issues[0].contains("nope"));
     }
@@ -909,23 +1103,49 @@ mod tests {
     #[test]
     fn raw_issues_flag_remote_type_dialects() {
         let claude = json!({"mcpServers": {"r": {"url": "https://x"}}});
-        let issues = json_raw_issues(ToolId::ClaudeCode, Format::McpServers, &claude);
+        let issues = json_raw_issues(
+            ToolId::ClaudeCode,
+            Format::McpServers,
+            &claude,
+            &BTreeSet::new(),
+        );
         assert_eq!(issues.len(), 1);
         assert!(issues[0].contains("requires `type: \"http\"`"));
 
         let roo = json!({"mcpServers": {"r": {"url": "https://x", "type": "http"}}});
-        let issues = json_raw_issues(ToolId::RooCode, Format::McpServers, &roo);
+        let issues = json_raw_issues(ToolId::RooCode, Format::McpServers, &roo, &BTreeSet::new());
         assert!(issues[0].contains("not accepted"));
 
         let transport = json!({"mcpServers": {"r": {"url": "https://x", "transport": "http"}}});
-        let issues = json_raw_issues(ToolId::ClaudeCode, Format::McpServers, &transport);
+        let issues = json_raw_issues(
+            ToolId::ClaudeCode,
+            Format::McpServers,
+            &transport,
+            &BTreeSet::new(),
+        );
         assert!(issues.iter().any(|i| i.contains("ignores")));
 
         let cursor = json!({"mcpServers": {"r": {"url": "https://x"}}});
-        assert!(json_raw_issues(ToolId::Cursor, Format::McpServers, &cursor).is_empty());
+        assert!(
+            json_raw_issues(
+                ToolId::Cursor,
+                Format::McpServers,
+                &cursor,
+                &BTreeSet::new()
+            )
+            .is_empty()
+        );
 
         let hybrid = json!({"mcpServers": {"r": {"command": "x", "url": "https://x"}}});
-        assert!(json_raw_issues(ToolId::ClaudeCode, Format::McpServers, &hybrid).is_empty());
+        assert!(
+            json_raw_issues(
+                ToolId::ClaudeCode,
+                Format::McpServers,
+                &hybrid,
+                &BTreeSet::new()
+            )
+            .is_empty()
+        );
     }
 
     #[test]

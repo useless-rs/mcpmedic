@@ -115,6 +115,31 @@ pub(crate) enum Cmd {
         dry_run: bool,
     },
 
+    /// Park a server without removing its config, where the tool documents a
+    /// per-server disable switch.
+    Disable {
+        /// Name of the server to park.
+        name: String,
+        /// Tool that owns the config (id or display name).
+        #[arg(long)]
+        from: String,
+        /// Show the change without touching any file.
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Resume a server parked with `mcpmedic disable`.
+    Enable {
+        /// Name of the server to resume.
+        name: String,
+        /// Tool that owns the config (id or display name).
+        #[arg(long)]
+        from: String,
+        /// Show the change without touching any file.
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Copy servers from one tool to another (additive merge, never deletes).
     Sync {
         /// Source tool (id or display name).

@@ -92,7 +92,7 @@ fn diagnose_loaded(
     }
 
     if let crate::store::RawDoc::Json(doc) = &cfg.raw {
-        for issue in crate::format::json_raw_issues(tool.id, tool.format, doc) {
+        for issue in crate::format::json_raw_issues(tool.id, tool.format, doc, &cfg.disabled) {
             let severity = if issue.contains("legacy") || issue.contains("ignored") {
                 Severity::Warning
             } else {
@@ -117,7 +117,7 @@ fn diagnose_loaded(
             });
         }
         if let Transport::Stdio { command, .. } = transport {
-            if !command_exists(command, path_env, home) {
+            if !cfg.disabled.contains(name) && !command_exists(command, path_env, home) {
                 findings.push(Finding {
                     severity: Severity::Critical,
                     tool: tool.id,
@@ -224,15 +224,24 @@ pub(crate) fn command_exists(command: &str, path_env: &str, home: &Path) -> bool
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, BTreeSet};
 
     use super::*;
     use crate::model::Servers;
 
     fn loaded(servers: Servers, problems: Vec<String>) -> ConfigState {
+        loaded_with_disabled(servers, problems, BTreeSet::new())
+    }
+
+    fn loaded_with_disabled(
+        servers: Servers,
+        problems: Vec<String>,
+        disabled: BTreeSet<String>,
+    ) -> ConfigState {
         ConfigState::Loaded(Box::new(LoadedConfig {
             raw: crate::store::RawDoc::Json(serde_json::json!({})),
             servers,
+            disabled,
             problems,
             editable: true,
         }))
@@ -271,6 +280,31 @@ mod tests {
             findings
                 .iter()
                 .any(|f| f.severity == Severity::Critical && f.message.contains("was not found"))
+        );
+    }
+
+    #[test]
+    fn disabled_servers_skip_dead_command_check() {
+        let mut servers = Servers::new();
+        servers.insert(
+            "parked".into(),
+            Transport::Stdio {
+                command: "/definitely/not/installed".into(),
+                args: vec![],
+                env: BTreeMap::new(),
+            },
+        );
+        let mut disabled = BTreeSet::new();
+        disabled.insert("parked".to_owned());
+        let tools = vec![ToolLoad::new(
+            ToolId::Zed,
+            Format::Zed,
+            loaded_with_disabled(servers, vec![], disabled),
+        )];
+        let findings = diagnose(&tools, Path::new("/home/u"), "");
+        assert!(
+            findings.iter().all(|f| f.severity != Severity::Critical),
+            "a parked server is intentional, not a finding: {findings:?}"
         );
     }
 
