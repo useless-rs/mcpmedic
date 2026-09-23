@@ -67,4 +67,10 @@ One line per improvement cycle: date, what changed, why.
   `doctor`/`sync` verbs are long enough to earn them. Docs: README install
   snippets for the three common shells; e2e test asserts every script names
   the binary and rejects unknown shells.
+- **2026-09-23 · cycle 3 — CI hygiene.** `actions/checkout` bumped v4 → v7
+  (v4 targets the EOL Node.js 20 runtime; v5+ runs on node24 — our own CI
+  logs carried the deprecation warning), and CI gained a `concurrency` group
+  so superseded pushes cancel in-progress runs instead of burning runner
+  minutes. Why: a green, warning-free CI page is part of the "trustworthy
+  first-aid kit" pitch — warning noise erodes trust.
 
