@@ -23,10 +23,11 @@ struct Ctx {
     home: PathBuf,
     env: EnvOverrides,
     project: Option<PathBuf>,
+    json: bool,
 }
 
 impl Ctx {
-    fn new(project: Option<PathBuf>) -> Self {
+    fn new(project: Option<PathBuf>, json: bool) -> Self {
         Self {
             home: home_dir(),
             env: EnvOverrides::from_env(),
@@ -37,6 +38,7 @@ impl Ctx {
                     std::env::current_dir().unwrap_or_default().join(dir)
                 }
             }),
+            json,
         }
     }
 
@@ -69,6 +71,14 @@ impl Ctx {
     }
 }
 
+/// Emit `value` as the single JSON document for this invocation.
+fn print_json(value: &Value) {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".into())
+    );
+}
+
 fn home_dir() -> PathBuf {
     std::env::var_os("HOME")
         .filter(|h| !h.is_empty())
@@ -84,7 +94,7 @@ fn home_dir() -> PathBuf {
 
 /// Entry point: dispatch a parsed CLI to a command.
 pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
-    let ctx = Ctx::new(cli.project);
+    let ctx = Ctx::new(cli.project, cli.json);
     let Some(cmd) = cli.cmd else {
         return cmd_scan(&ctx);
     };
@@ -284,62 +294,102 @@ fn parse_kv_pairs(items: &[String], flag: &str) -> Result<Vec<(String, String)>,
 // scan / list / show
 // ---------------------------------------------------------------------------
 
+#[expect(clippy::too_many_lines)]
 fn cmd_scan(ctx: &Ctx) -> ExitCode {
-    println!("{}", report::brand_header());
-    if let Some(project) = &ctx.project {
-        println!("  project: {}", project.display());
+    if !ctx.json {
+        println!("{}", report::brand_header());
+        if let Some(project) = &ctx.project {
+            println!("  project: {}", project.display());
+        }
+        println!();
     }
-    println!();
 
     let mut configured = 0;
     let mut total_servers = 0;
     let mut with_findings = 0;
+    let mut tools_json = Vec::new();
 
     for spec in ctx.specs() {
         let shown = display_path(&ctx.path(spec), &ctx.home);
+        let mut entry = json!({
+            "id": spec.id.as_str(),
+            "display": spec.display,
+            "path": ctx.path(spec).display().to_string(),
+        });
         match ctx.load(spec) {
             ConfigState::Missing => {
-                println!(
-                    "  {} {:<14} {}",
-                    report::glyph_none(),
-                    spec.id.as_str(),
-                    shown
-                );
+                entry["state"] = json!("missing");
+                if !ctx.json {
+                    println!(
+                        "  {} {:<14} {}",
+                        report::glyph_none(),
+                        spec.id.as_str(),
+                        shown
+                    );
+                }
             }
             ConfigState::ParseError(msg) => {
                 configured += 1;
                 with_findings += 1;
-                println!(
-                    "  {} {:<14} {}  ✗ parse error: {}",
-                    report::glyph_crit(),
-                    spec.id.as_str(),
-                    shown,
-                    report::truncate(&msg, 40)
-                );
+                entry["state"] = json!("parse_error");
+                entry["error"] = json!(msg);
+                if !ctx.json {
+                    println!(
+                        "  {} {:<14} {}  ✗ parse error: {}",
+                        report::glyph_crit(),
+                        spec.id.as_str(),
+                        shown,
+                        report::truncate(&msg, 40)
+                    );
+                }
             }
             ConfigState::Loaded(cfg) => {
                 configured += 1;
                 total_servers += cfg.servers.len();
-                if cfg.problems.is_empty() {
-                    println!(
-                        "  {} {:<14} {}  {} servers",
-                        report::glyph_ok(),
-                        spec.id.as_str(),
-                        shown,
-                        cfg.servers.len()
-                    );
-                } else {
+                entry["state"] = json!("loaded");
+                entry["servers"] = json!(cfg.servers.len());
+                entry["disabled"] = json!(cfg.disabled.len());
+                entry["problems"] = json!(cfg.problems.len());
+                if !cfg.problems.is_empty() {
                     with_findings += 1;
-                    println!(
-                        "  {} {:<14} {}  ✗ {} unparseable entries",
-                        report::glyph_ok(),
-                        spec.id.as_str(),
-                        shown,
-                        cfg.problems.len()
-                    );
+                }
+                if !ctx.json {
+                    if cfg.problems.is_empty() {
+                        println!(
+                            "  {} {:<14} {}  {} servers",
+                            report::glyph_ok(),
+                            spec.id.as_str(),
+                            shown,
+                            cfg.servers.len()
+                        );
+                    } else {
+                        println!(
+                            "  {} {:<14} {}  ✗ {} unparseable entries",
+                            report::glyph_ok(),
+                            spec.id.as_str(),
+                            shown,
+                            cfg.problems.len()
+                        );
+                    }
                 }
             }
         }
+        tools_json.push(entry);
+    }
+
+    if ctx.json {
+        print_json(&json!({
+            "schema_version": 1,
+            "generator": format!("mcpmedic {}", env!("CARGO_PKG_VERSION")),
+            "project": ctx.project.as_ref().map(|p| p.display().to_string()),
+            "tools": tools_json,
+            "summary": {
+                "configured": configured,
+                "total_servers": total_servers,
+                "with_findings": with_findings,
+            }
+        }));
+        return ExitCode::SUCCESS;
     }
 
     println!();
@@ -354,6 +404,7 @@ fn cmd_scan(ctx: &Ctx) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+#[expect(clippy::too_many_lines)]
 fn cmd_list(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
     let specs: Vec<&'static ToolSpec> = match tool {
         Some(name) => match resolve(name) {
@@ -364,10 +415,17 @@ fn cmd_list(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
     };
 
     let mut any = false;
+    let mut tools_json = Vec::new();
     for spec in specs {
+        let mut entry = json!({
+            "id": spec.id.as_str(),
+            "display": spec.display,
+            "path": ctx.path(spec).display().to_string(),
+        });
         match ctx.load(spec) {
             ConfigState::Missing => {
-                if tool.is_some() {
+                entry["state"] = json!("missing");
+                if tool.is_some() && !ctx.json {
                     println!(
                         "  {} {} — no config found at {}",
                         report::glyph_none(),
@@ -378,53 +436,85 @@ fn cmd_list(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
             }
             ConfigState::ParseError(msg) => {
                 any = true;
-                println!(
-                    "  {} {} — parse error: {}",
-                    report::glyph_crit(),
-                    spec.display,
-                    msg
-                );
-            }
-            ConfigState::Loaded(cfg) => {
-                any = true;
-                println!(
-                    "\n{} — {} ({})",
-                    report::header(spec.display),
-                    display_path(&ctx.path(spec), &ctx.home),
-                    cfg.servers.len()
-                );
-                if cfg.servers.is_empty() && cfg.problems.is_empty() {
-                    println!("  (no servers configured)");
-                    continue;
-                }
-                let mut rows = vec![vec![
-                    "NAME".to_owned(),
-                    "TRANSPORT".to_owned(),
-                    "COMMAND / URL".to_owned(),
-                ]];
-                for (name, transport) in &cfg.servers {
-                    let kind = if cfg.disabled.contains(name) {
-                        format!("{} (off)", transport.kind())
-                    } else {
-                        transport.kind().to_owned()
-                    };
-                    rows.push(vec![
-                        name.clone(),
-                        kind,
-                        report::truncate(&transport.summary(), 58),
-                    ]);
-                }
-                print!("{}", report::render_table(&rows));
-                if !cfg.problems.is_empty() {
+                entry["state"] = json!("parse_error");
+                entry["error"] = json!(msg);
+                if !ctx.json {
                     println!(
-                        "  {} {} unparseable entries — run `mcpmedic doctor`",
-                        report::glyph_warn(),
-                        cfg.problems.len()
+                        "  {} {} — parse error: {}",
+                        report::glyph_crit(),
+                        spec.display,
+                        msg
                     );
                 }
             }
+            ConfigState::Loaded(cfg) => {
+                any = true;
+                entry["state"] = json!("loaded");
+                entry["problems"] = json!(cfg.problems);
+                let servers_json: Vec<Value> = cfg
+                    .servers
+                    .iter()
+                    .map(|(name, transport)| {
+                        json!({
+                            "name": name,
+                            "transport": transport.kind(),
+                            "detail": transport.summary(),
+                            "disabled": cfg.disabled.contains(name),
+                        })
+                    })
+                    .collect();
+                entry["servers"] = json!(servers_json);
+                if !ctx.json {
+                    println!(
+                        "\n{} — {} ({})",
+                        report::header(spec.display),
+                        display_path(&ctx.path(spec), &ctx.home),
+                        cfg.servers.len()
+                    );
+                    if cfg.servers.is_empty() && cfg.problems.is_empty() {
+                        println!("  (no servers configured)");
+                        continue;
+                    }
+                    let mut rows = vec![vec![
+                        "NAME".to_owned(),
+                        "TRANSPORT".to_owned(),
+                        "COMMAND / URL".to_owned(),
+                    ]];
+                    for (name, transport) in &cfg.servers {
+                        let kind = if cfg.disabled.contains(name) {
+                            format!("{} (off)", transport.kind())
+                        } else {
+                            transport.kind().to_owned()
+                        };
+                        rows.push(vec![
+                            name.clone(),
+                            kind,
+                            report::truncate(&transport.summary(), 58),
+                        ]);
+                    }
+                    print!("{}", report::render_table(&rows));
+                    if !cfg.problems.is_empty() {
+                        println!(
+                            "  {} {} unparseable entries — run `mcpmedic doctor`",
+                            report::glyph_warn(),
+                            cfg.problems.len()
+                        );
+                    }
+                }
+            }
         }
+        tools_json.push(entry);
     }
+
+    if ctx.json {
+        print_json(&json!({
+            "schema_version": 1,
+            "generator": format!("mcpmedic {}", env!("CARGO_PKG_VERSION")),
+            "tools": tools_json,
+        }));
+        return ExitCode::SUCCESS;
+    }
+
     if !any {
         println!("No MCP configs found. Install an AI tool, or add a server with:");
         println!(
@@ -445,6 +535,28 @@ fn cmd_show(ctx: &Ctx, name: &str) -> ExitCode {
     }
     if hits.is_empty() {
         return fail(&format!("no tool configures a server named `{name}`"));
+    }
+
+    if ctx.json {
+        let tools_json: Vec<Value> = hits
+            .iter()
+            .map(|(spec, transport, off)| {
+                json!({
+                    "id": spec.id.as_str(),
+                    "display": spec.display,
+                    "transport": transport.kind(),
+                    "detail": transport.summary(),
+                    "disabled": off,
+                })
+            })
+            .collect();
+        print_json(&json!({
+            "schema_version": 1,
+            "name": name,
+            "tools": tools_json,
+            "drift": hits.len() > 1 && !hits.windows(2).all(|w| w[0].1 == w[1].1),
+        }));
+        return ExitCode::SUCCESS;
     }
 
     println!(
@@ -484,6 +596,7 @@ fn cmd_show(ctx: &Ctx, name: &str) -> ExitCode {
 // doctor / diff
 // ---------------------------------------------------------------------------
 
+#[expect(clippy::too_many_lines)]
 fn cmd_doctor(ctx: &Ctx, tool: Option<&str>, strict: bool, fix: bool, dry_run: bool) -> ExitCode {
     let specs: Vec<&'static ToolSpec> = match tool {
         Some(name) => match resolve(name) {
@@ -509,6 +622,46 @@ fn cmd_doctor(ctx: &Ctx, tool: Option<&str>, strict: bool, fix: bool, dry_run: b
             Err(e) => return fail(&e),
         }
         findings = doctor::diagnose(&loads, &ctx.home, &path_env);
+    }
+
+    if ctx.json {
+        let findings_json: Vec<Value> = findings
+            .iter()
+            .map(|f| {
+                json!({
+                    "severity": severity_label(f.severity),
+                    "tool": f.tool.as_str(),
+                    "server": f.server,
+                    "message": f.message,
+                })
+            })
+            .collect();
+        let critical = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Critical)
+            .count();
+        let warnings = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Warning)
+            .count();
+        let info = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Info)
+            .count();
+        print_json(&json!({
+            "schema_version": 1,
+            "findings": findings_json,
+            "summary": {
+                "critical": critical,
+                "warning": warnings,
+                "info": info,
+            }
+        }));
+        return if critical > 0 || (strict && warnings > 0) {
+            ExitCode::from(1)
+        } else {
+            ExitCode::SUCCESS
+        };
     }
 
     if findings.is_empty() {
@@ -1149,7 +1302,10 @@ fn cmd_audit(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
 
     let mut secrets = 0;
     let mut perms_warnings = 0;
-    println!("{}", report::header("Security audit"));
+    let mut findings_json = Vec::new();
+    if !ctx.json {
+        println!("{}", report::header("Security audit"));
+    }
     for spec in specs {
         let ConfigState::Loaded(cfg) = ctx.load(spec) else {
             continue;
@@ -1157,25 +1313,59 @@ fn cmd_audit(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
         let path = ctx.path(spec);
         if let Some(warning) = audit::permissions_warning(&path) {
             perms_warnings += 1;
-            println!(
-                "  {} {} config is {warning}",
-                report::glyph_warn(),
-                spec.display
-            );
+            findings_json.push(json!({
+                "severity": "warning",
+                "tool": spec.id.as_str(),
+                "kind": "permissions",
+                "message": format!("{} config is {warning}", spec.display),
+            }));
+            if !ctx.json {
+                println!(
+                    "  {} {} config is {warning}",
+                    report::glyph_warn(),
+                    spec.display
+                );
+            }
         }
         for (name, transport) in &cfg.servers {
             for finding in audit::scan_transport(name, transport) {
                 secrets += 1;
-                println!(
-                    "  {} {} — server `{}` {}: hardcoded {}",
-                    report::glyph_crit(),
-                    spec.display,
-                    finding.server,
-                    finding.location,
-                    finding.label
-                );
+                findings_json.push(json!({
+                    "severity": "critical",
+                    "tool": spec.id.as_str(),
+                    "kind": "hardcoded_secret",
+                    "server": finding.server,
+                    "location": finding.location,
+                    "message": format!("hardcoded {}", finding.label),
+                }));
+                if !ctx.json {
+                    println!(
+                        "  {} {} — server `{}` {}: hardcoded {}",
+                        report::glyph_crit(),
+                        spec.display,
+                        finding.server,
+                        finding.location,
+                        finding.label
+                    );
+                }
             }
         }
+    }
+
+    if ctx.json {
+        print_json(&json!({
+            "schema_version": 1,
+            "findings": findings_json,
+            "summary": {
+                "secrets": secrets,
+                "permission_warnings": perms_warnings,
+            }
+        }));
+        return if secrets > 0 {
+            ExitCode::from(1)
+        } else {
+            ExitCode::SUCCESS
+        };
     }
 
     println!();

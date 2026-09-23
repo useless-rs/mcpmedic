@@ -910,6 +910,48 @@ fn audit_flags_hardcoded_secrets_and_passes_clean_configs() {
 }
 
 #[test]
+fn json_mode_emits_parseable_schema_versioned_output() {
+    let home = sample_home("json");
+    let out = run(&home, &["scan", "--json"]);
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout(&out)).expect("scan --json must emit valid JSON");
+    assert_eq!(parsed["schema_version"], 1);
+    assert!(parsed["tools"].is_array());
+    assert!(parsed["summary"].is_object());
+
+    let out = run(&home, &["list", "--json", "--tool", "cursor"]);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout(&out)).expect("list --json must emit valid JSON");
+    assert_eq!(parsed["schema_version"], 1);
+    assert!(parsed["tools"][0]["servers"].is_array());
+    assert!(parsed["tools"][0]["servers"][0]["name"].is_string());
+
+    let out = run(&home, &["doctor", "--json"]);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout(&out)).expect("doctor --json must emit valid JSON");
+    assert_eq!(parsed["schema_version"], 1);
+    assert!(parsed["findings"].is_array());
+    assert!(parsed["summary"].is_object());
+
+    let out = run(&home, &["audit", "--json"]);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout(&out)).expect("audit --json must emit valid JSON");
+    assert_eq!(parsed["schema_version"], 1);
+    assert!(parsed["findings"].is_array());
+    assert!(parsed["summary"].is_object());
+
+    let out = run(&home, &["show", "context7", "--json"]);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout(&out)).expect("show --json must emit valid JSON");
+    assert_eq!(parsed["schema_version"], 1);
+    assert!(parsed["tools"].is_array());
+    assert!(parsed["drift"].is_boolean());
+
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn backup_command_copies_configs() {
     let home = sample_home("backup");
     let out = run(&home, &["backup"]);

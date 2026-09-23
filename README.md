@@ -64,6 +64,9 @@ doesn't own, always atomically, always with an automatic backup first.
   entropy heuristic for unprefixed ones, with placeholders and `${VAR}`
   references correctly skipped), and a Unix permission check that warns when
   a config full of credentials is readable by others
+- 📡 **`--json`** — every read command (`scan`, `list`, `show`, `doctor`,
+  `audit`) emits a single schema-versioned JSON document on stdout, with
+  unchanged exit codes — pipe to `jq`, gate CI, build editor integrations
 - 🪡 **Surgical edits** — `add`/`rm` write the *exact* dialect each tool
   expects, preserve every unrelated key, use atomic `write+rename`, and back up
   the previous file to `~/.mcpmedic/backups/` first
@@ -72,7 +75,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **84 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
+- ✅ **85 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
 
 ## Supported tools
 
@@ -210,6 +213,14 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 
 All commands accept `--project <dir>` to operate on repo-checked-in configs
 instead of user-global files; all mutation commands support `--dry-run`.
+All read commands (`scan`, `list`, `show`, `doctor`, `audit`) accept `--json`
+for schema-versioned machine output on stdout — exit codes are unchanged,
+so `doctor --json` still exits 1 on critical findings and gates CI:
+
+```sh
+mcpmedic doctor --json | jq '.findings[] | select(.severity == "critical")'
+mcpmedic scan --json   | jq '.tools[] | select(.state == "loaded") | .id'
+```
 
 ## Exit codes
 

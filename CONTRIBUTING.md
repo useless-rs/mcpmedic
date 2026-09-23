@@ -168,4 +168,14 @@ One line per improvement cycle: date, what changed, why.
   is 0700, backup files 0600, and newly created config files get mode 600
   (existing files keep their current mode — we don't silently change what
   the tool's owner set). 7 new unit tests + 1 e2e; 84 total.
+- **2026-09-23 · cycle 12 — `--json` machine output.** Every read command
+  (`scan`, `list`, `show`, `doctor`, `audit`) now emits a single
+  schema-versioned JSON document on stdout when `--json` is passed. Exit
+  codes are unchanged — `doctor --json` still exits 1 on critical findings
+  and `audit --json` still exits 1 on hardcoded secrets — so the flag is a
+  drop-in for CI gates and jq pipelines, not a behavioral change. Output
+  carries `schema_version: 1` and a `generator` field per the CLI JSON
+  contract research (data on stdout only, stable schema, deterministic
+  ordering). One new e2e test validating all five commands produce
+  parseable, schema-versioned JSON; 85 total.
 

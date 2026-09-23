@@ -33,6 +33,11 @@ pub(crate) struct Cli {
     #[arg(long, global = true, value_name = "DIR")]
     pub project: Option<PathBuf>,
 
+    /// Emit machine-readable JSON on stdout (scan, list, show, doctor,
+    /// audit). Exit codes are unchanged; human decoration is suppressed.
+    #[arg(long, global = true)]
+    pub json: bool,
+
     #[command(subcommand)]
     pub cmd: Option<Cmd>,
 }
