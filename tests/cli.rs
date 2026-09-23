@@ -544,3 +544,28 @@ fn backup_command_copies_configs() {
     assert_eq!(count, 2);
     let _ = std::fs::remove_dir_all(&home);
 }
+
+#[test]
+fn completions_are_generated_for_every_shell() {
+    let home = temp_home("completions");
+    for shell in ["bash", "zsh", "fish", "powershell"] {
+        let out = run(&home, &["completions", shell]);
+        assert!(out.status.success(), "{shell}: stderr: {}", stderr(&out));
+        let text = stdout(&out);
+        assert!(
+            text.contains("mcpmedic"),
+            "{shell} script must name the binary"
+        );
+        assert!(!text.is_empty(), "{shell} script must not be empty");
+    }
+
+    let out = run(&home, &["completions", "bash"]);
+    assert!(
+        stdout(&out).contains("complete"),
+        "bash script should register a complete handler"
+    );
+
+    let out = run(&home, &["completions", "not-a-shell"]);
+    assert_eq!(out.status.code(), Some(2));
+    let _ = std::fs::remove_dir_all(&home);
+}

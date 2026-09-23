@@ -146,6 +146,14 @@ mcpmedic export --out my-mcp-servers.json         # portable JSON
 mcpmedic import my-mcp-servers.json              # restore into every tool
 ```
 
+Install shell completions:
+
+```sh
+mcpmedic completions bash  > ~/.local/share/bash-completion/completions/mcpmedic  # bash
+mcpmedic completions zsh   > ~/.zfunc/_mcpmedic                                    # zsh (+ compinit)
+mcpmedic completions fish  > ~/.config/fish/completions/mcpmedic.fish             # fish
+```
+
 ## Commands
 
 | Command | What it does |
@@ -160,6 +168,7 @@ mcpmedic import my-mcp-servers.json              # restore into every tool
 | `sync --from <a> --to <b>` | Additive merge; `--force`, `--names`, `--dry-run` supported |
 | `export [--out <file>]` | Dump everything to portable JSON |
 | `import <file> [--to <t>]` | Restore an export (per-tool sections or flat `servers` map) |
+| `completions <shell>` | Print completions for bash, zsh, fish, elvish or powershell |
 | `backup [--tool <t>]` | Manual backup (also automatic before every mutation) |
 
 All mutation commands support `--dry-run`.
@@ -204,8 +213,8 @@ improvement cycle; log in [`CONTRIBUTING.md`](CONTRIBUTING.md#improvement-log).
 
 | # | Item | I | E | Risk | Status |
 |---|---|---|---|---|---|
-| 1 | Shell completions (`mcpmedic completions bash\|zsh\|fish\|powershell`) | 4 | 2 | L | **next up** |
-| 2 | `doctor --fix` for safe auto-repairs (VS Code missing `type`, Zed legacy migration) | 4 | 3 | M | planned |
+| 1 | ~~Shell completions~~ (`mcpmedic completions bash\|zsh\|fish\|powershell`) | 4 | 2 | L | ✅ cycle 2 |
+| 2 | `doctor --fix` for safe auto-repairs (VS Code missing `type`, Zed legacy migration) | 4 | 3 | M | **next up** |
 | 3 | `enable` / `disable` servers without removal (Codex `enabled`, opencode `enabled: false`) | 3 | 3 | L | planned |
 | 4 | Project-scoped configs (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`) | 4 | 4 | M | planned |
 | 5 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | planned |

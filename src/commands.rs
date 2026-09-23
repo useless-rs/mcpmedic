@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use clap::CommandFactory;
 use serde_json::{Value, json};
 
 use crate::cli::Cmd;
@@ -90,7 +91,14 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
         Cmd::Export { out } => cmd_export(&ctx, out),
         Cmd::Import { file, to, dry_run } => cmd_import(&ctx, &file, to.as_deref(), dry_run),
         Cmd::Backup { tool } => cmd_backup(&ctx, tool.as_deref()),
+        Cmd::Completions { shell } => cmd_completions(shell),
     }
+}
+
+fn cmd_completions(shell: clap_complete::Shell) -> ExitCode {
+    let mut cmd = crate::cli::Cli::command();
+    clap_complete::generate(shell, &mut cmd, "mcpmedic", &mut std::io::stdout());
+    ExitCode::SUCCESS
 }
 
 fn fail(message: &str) -> ExitCode {

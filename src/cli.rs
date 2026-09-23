@@ -144,6 +144,13 @@ pub(crate) enum Cmd {
         dry_run: bool,
     },
 
+    /// Generate shell completions to stdout (bash, zsh, fish, elvish, powershell).
+    Completions {
+        /// Shell to generate completions for.
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
+
     /// Manually back up configs (also happens automatically before every edit).
     Backup {
         /// Only back up this tool (id or display name).

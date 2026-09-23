@@ -59,3 +59,12 @@ One line per improvement cycle: date, what changed, why.
   terminal screenshot; mcpmedic had no visual identity at all. Research:
   CLI/dev-tool brand guides (dark-first, monospace lowercase wordmark, one
   accent color used sparingly, flat marks that survive 16 px).
+- **2026-09-23 · cycle 2 — shell completions.** `mcpmedic completions <shell>`
+  prints scripts for bash, zsh, fish, elvish and powershell via `clap_complete`
+  (AOT generation from the same derive definition that powers the CLI, so
+  flags and help can never drift from completions). Why: completions are
+  table stakes for CLI adoption — every peer tool ships them, and the
+  `doctor`/`sync` verbs are long enough to earn them. Docs: README install
+  snippets for the three common shells; e2e test asserts every script names
+  the binary and rejects unknown shells.
+
