@@ -107,7 +107,8 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
             strict,
             fix,
             dry_run,
-        } => cmd_doctor(&ctx, tool.as_deref(), strict, fix, dry_run),
+            probe,
+        } => cmd_doctor(&ctx, tool.as_deref(), strict, fix, dry_run, probe),
         Cmd::Diff { a, b } => cmd_diff(&ctx, &a, &b),
         Cmd::Add {
             name,
@@ -598,7 +599,15 @@ fn cmd_show(ctx: &Ctx, name: &str) -> ExitCode {
 // ---------------------------------------------------------------------------
 
 #[expect(clippy::too_many_lines)]
-fn cmd_doctor(ctx: &Ctx, tool: Option<&str>, strict: bool, fix: bool, dry_run: bool) -> ExitCode {
+#[expect(clippy::fn_params_excessive_bools)]
+fn cmd_doctor(
+    ctx: &Ctx,
+    tool: Option<&str>,
+    strict: bool,
+    fix: bool,
+    dry_run: bool,
+    probe: bool,
+) -> ExitCode {
     let specs: Vec<&'static ToolSpec> = match tool {
         Some(name) => match resolve(name) {
             Ok(spec) => vec![spec],
@@ -623,6 +632,33 @@ fn cmd_doctor(ctx: &Ctx, tool: Option<&str>, strict: bool, fix: bool, dry_run: b
             Err(e) => return fail(&e),
         }
         findings = doctor::diagnose(&loads, &ctx.home, &path_env);
+    }
+
+    if probe {
+        for load in &loads {
+            let ConfigState::Loaded(cfg) = &load.state else {
+                continue;
+            };
+            for (name, transport) in &cfg.servers {
+                let (severity, message) = match crate::probe::probe_transport(transport) {
+                    crate::probe::Probe::Reachable(reason) => {
+                        (Severity::Info, format!("probe: {reason}"))
+                    }
+                    crate::probe::Probe::Unreachable(reason) => {
+                        (Severity::Critical, format!("unreachable: {reason}"))
+                    }
+                    crate::probe::Probe::Skipped(reason) => {
+                        (Severity::Info, format!("probe skipped: {reason}"))
+                    }
+                };
+                findings.push(doctor::Finding {
+                    severity,
+                    tool: load.id,
+                    server: Some(name.clone()),
+                    message,
+                });
+            }
+        }
     }
 
     if ctx.json {

@@ -226,3 +226,12 @@ One line per improvement cycle: date, what changed, why.
   hashes. crates.io validated via cargo package (139 KB) but publish requires
   a token the owner must provide: `cargo login <TOKEN>` + `cargo publish`.
   Release notes enumerate all changes since v0.2.0.
+- **2026-09-23 · cycle 19 — `doctor --probe`.** Reachability probe for
+  every configured server, from scratch (zero new dependencies): stdio
+  servers are spawned briefly (500 ms grace period, then killed if still
+  running) and remote endpoints get a `TcpStream::connect_timeout` (3 s)
+  with the host/port extracted from the URL via simple string parsing.
+  Templated commands (`${VAR}`) are skipped. Findings: reachable → info,
+  unreachable → critical (gates CI), skipped → info. Research: MCP health
+  check patterns from mcp-health-monitor, mcp-healthcheck, mcp-pulse,
+  mcp2cli doctor. 5 new unit tests + existing 35 e2e; 92 total.

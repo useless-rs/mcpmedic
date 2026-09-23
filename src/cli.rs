@@ -61,6 +61,7 @@ pub(crate) enum Cmd {
     },
 
     /// Health-check all configs: broken JSON, dead commands, drift, bloat.
+    /// Pass --probe to also verify each server is reachable.
     Doctor {
         /// Only check this tool (id or display name).
         #[arg(long)]
@@ -78,6 +79,11 @@ pub(crate) enum Cmd {
         /// With `--fix`: show what would change without touching any file.
         #[arg(long, requires = "fix")]
         dry_run: bool,
+
+        /// Probe each server's reachability: spawn stdio processes briefly
+        /// (500 ms), TCP-connect to remote endpoints (3 s timeout).
+        #[arg(long)]
+        probe: bool,
     },
 
     /// Compare the servers of two tools and show the drift.

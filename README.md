@@ -75,7 +75,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **87 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 15 tools
+- ✅ **92 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 15 tools
 
 ## Supported tools
 
@@ -222,7 +222,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `scan` (default) | Detect installed tools and their configs, with server counts |
 | `list [--tool <t>]` | Table of every server per tool |
 | `show <name>` | Every tool that configures a given server + drift check |
-| `doctor [--tool <t>] [--strict] [--fix]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat. `--fix` applies safe auto-repairs (`--dry-run` previews) |
+| `doctor [--tool <t>] [--strict] [--fix] [--probe]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat. `--fix` applies safe auto-repairs (`--dry-run` previews); `--probe` verifies each server is reachable (spawn stdio 500ms, TCP connect 3s) |
 | `diff <a> <b>` | Server drift between two tools |
 | `add <name> --to <t> ...` | Add a stdio (`--command ... -- args`) or remote (`--url`) server |
 | `rm <name> --from <t>` | Remove one server |
@@ -305,7 +305,7 @@ improvement cycle; log in [`CONTRIBUTING.md`](CONTRIBUTING.md#improvement-log).
 | 7 | ~~More tools~~ Warp, Kiro, TRAE, Antigravity added (JetBrains excluded: their IDEs are MCP *servers*, not clients) | 3 | 2 | L | ✅ cycles 15-16 |
 | 8 | Social preview PNG upload | 2 | 1 | L | ✅ cycle 10 (PNG ready in `docs/brand/`; upload in repo settings) |
 | 9 | ~~Absolute image URLs before `cargo publish`~~ | 2 | 1 | L | ✅ cycle 13 |
-| 10 | MCP reachability probe in `doctor` (spawn / HTTP HEAD with strict timeouts) | 4 | 4 | H | someday |
+| 10 | ~~MCP reachability probe in `doctor`~~ (stdio spawn 500ms, TCP connect 3s) | 4 | 4 | H | ✅ cycle 19 |
 
 Explicit non-goal: telemetry, ever. A config doctor that phones home would be
 a bad joke.
