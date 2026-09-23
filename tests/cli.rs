@@ -44,28 +44,37 @@ fn write(home: &Path, rel: &str, contents: &str) {
     std::fs::write(path, contents).unwrap();
 }
 
+fn ubiquitous_command() -> &'static str {
+    if cfg!(windows) { "cmd" } else { "sh" }
+}
+
 fn sample_home(tag: &str) -> PathBuf {
     let home = temp_home(tag);
+    let cmd = ubiquitous_command();
     write(
         &home,
         ".cursor/mcp.json",
-        r#"{
-  "mcpServers": {
-    "context7": {"command": "npx", "args": ["-y", "@upstash/context7-mcp"]},
-    "github": {"type": "http", "url": "https://api.githubcopilot.com/mcp/"}
-  }
-}"#,
+        &format!(
+            r#"{{
+  "mcpServers": {{
+    "context7": {{"command": "{cmd}", "args": ["-y", "@upstash/context7-mcp"]}},
+    "github": {{"type": "http", "url": "https://api.githubcopilot.com/mcp/"}}
+  }}
+}}"#
+        ),
     );
     write(
         &home,
         ".claude.json",
-        r#"{
+        &format!(
+            r#"{{
   "numStartups": 42,
-  "mcpServers": {
-    "context7": {"command": "npx", "args": ["-y", "@upstash/context7-mcp-old"]},
-    "only-claude": {"command": "uvx", "args": ["mcp-server-fetch"]}
-  }
-}"#,
+  "mcpServers": {{
+    "context7": {{"command": "{cmd}", "args": ["-y", "@upstash/context7-mcp-old"]}},
+    "only-claude": {{"command": "{cmd}", "args": ["mcp-server-fetch"]}}
+  }}
+}}"#
+        ),
     );
     home
 }
@@ -404,7 +413,10 @@ fn export_and_import_roundtrip_restores_a_wiped_config() {
     let config: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(home.join(".cursor/mcp.json")).unwrap())
             .unwrap();
-    assert_eq!(config["mcpServers"]["context7"]["command"], "npx");
+    assert_eq!(
+        config["mcpServers"]["context7"]["command"],
+        serde_json::json!(ubiquitous_command())
+    );
     assert_eq!(
         config["mcpServers"]["github"]["url"],
         "https://api.githubcopilot.com/mcp/"
