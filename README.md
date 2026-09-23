@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/brand/banner.png" width="880" alt="mcpmedic — first aid for MCP configs: scan, doctor, diff and sync MCP servers across every AI tool you use">
+<img src="https://raw.githubusercontent.com/useless-rs/mcpmedic/main/docs/brand/banner.png" width="880" alt="mcpmedic — first aid for MCP configs: scan, doctor, diff and sync MCP servers across every AI tool you use">
 
 [![CI](https://github.com/useless-rs/mcpmedic/actions/workflows/ci.yml/badge.svg)](https://github.com/useless-rs/mcpmedic/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/mcpmedic.svg)](https://crates.io/crates/mcpmedic)
@@ -107,7 +107,13 @@ drift just because two tools spell its transport differently.
 
 ## Install
 
-**From source (any platform with a Rust toolchain ≥ 1.85):**
+**From crates.io (any platform with a Rust toolchain ≥ 1.85):**
+
+```sh
+cargo install mcpmedic
+```
+
+**From source:**
 
 ```sh
 cargo install --git https://github.com/useless-rs/mcpmedic

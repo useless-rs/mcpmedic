@@ -6,6 +6,7 @@ rust-version = "1.85"
 description = "First aid for MCP configs: scan, doctor, diff and sync MCP servers across every AI tool you use."
 license = "MIT"
 repository = "https://github.com/useless-rs/mcpmedic"
+homepage = "https://github.com/useless-rs/mcpmedic"
 readme = "README.md"
 keywords = ["mcp", "cli", "ai", "config", "developer-tools"]
 categories = ["command-line-utilities", "development-tools"]
