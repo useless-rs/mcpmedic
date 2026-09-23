@@ -146,6 +146,7 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
         Cmd::Export { out } => cmd_export(&ctx, out),
         Cmd::Import { file, to, dry_run } => cmd_import(&ctx, &file, to.as_deref(), dry_run),
         Cmd::Backup { tool } => cmd_backup(&ctx, tool.as_deref()),
+        Cmd::Restore { tool, list, latest } => cmd_restore(&ctx, tool.as_deref(), list, latest),
         Cmd::Audit { tool } => cmd_audit(&ctx, tool.as_deref()),
         Cmd::Completions { shell } => cmd_completions(shell),
     }
@@ -1378,6 +1379,77 @@ fn cmd_audit(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+fn cmd_restore(ctx: &Ctx, tool: Option<&str>, list: bool, latest: bool) -> ExitCode {
+    let backups = store::list_backups(&ctx.home);
+
+    if list || !latest {
+        println!("{}", report::header("Available backups"));
+        if backups.is_empty() {
+            println!(
+                "  no backups found in {}",
+                store::backups_dir(&ctx.home).display()
+            );
+            println!("  backups are created automatically before every mcpmedic edit");
+            return ExitCode::SUCCESS;
+        }
+        for entry in &backups {
+            println!("  {} {}", entry.tool_id, entry.path.display());
+        }
+        println!();
+        println!("  to restore: `mcpmedic restore --latest [--tool <id>]`");
+        return ExitCode::SUCCESS;
+    }
+
+    let specs: Vec<&'static ToolSpec> = match tool {
+        Some(name) => match resolve(name) {
+            Ok(spec) => vec![spec],
+            Err(e) => return fail(&e),
+        },
+        None => ctx.specs(),
+    };
+
+    let mut restored = 0;
+    for spec in specs {
+        let Some(entry) = backups.iter().find(|b| b.tool_id == spec.id.as_str()) else {
+            continue;
+        };
+        let path = ctx.path(spec);
+        let contents = match std::fs::read_to_string(&entry.path) {
+            Ok(c) => c,
+            Err(e) => {
+                println!(
+                    "  {} cannot read backup {}: {e}",
+                    report::glyph_crit(),
+                    entry.path.display()
+                );
+                continue;
+            }
+        };
+        match store::persist(&path, &contents, spec.id.as_str(), &ctx.home) {
+            Ok(_) => {
+                restored += 1;
+                println!(
+                    "  {} {} restored from {}",
+                    report::glyph_ok(),
+                    spec.display,
+                    entry.path.display()
+                );
+            }
+            Err(e) => println!(
+                "  {} {} restore failed: {e}",
+                report::glyph_crit(),
+                spec.display
+            ),
+        }
+    }
+    if restored == 0 {
+        println!("  no backups found to restore");
+    } else {
+        println!("  restart the affected tool(s) for changes to take effect");
+    }
+    ExitCode::SUCCESS
 }
 
 fn cmd_backup(ctx: &Ctx, tool: Option<&str>) -> ExitCode {

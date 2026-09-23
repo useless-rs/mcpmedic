@@ -994,6 +994,51 @@ fn warp_kiro_and_trae_are_discoverable() {
 }
 
 #[test]
+fn restore_reverts_config_to_latest_backup() {
+    let home = temp_home("restore");
+    write(
+        &home,
+        ".cursor/mcp.json",
+        r#"{"mcpServers": {"original": {"command": "sh"}}}"#,
+    );
+
+    let out = run(
+        &home,
+        &["add", "new-server", "--to", "cursor", "--command", "sh"],
+    );
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+
+    let config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(".cursor/mcp.json")).unwrap())
+            .unwrap();
+    assert!(config["mcpServers"]["new-server"].is_object());
+
+    let out = run(&home, &["restore", "--latest", "--tool", "cursor"]);
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+    assert!(stdout(&out).contains("restored"), "{}", stdout(&out));
+
+    let config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(".cursor/mcp.json")).unwrap())
+            .unwrap();
+    assert!(
+        config["mcpServers"].get("new-server").is_none(),
+        "restored config must not have the added server"
+    );
+    assert!(
+        config["mcpServers"]["original"].is_object(),
+        "original server must be back"
+    );
+
+    let out = run(&home, &["restore", "--list"]);
+    assert!(stdout(&out).contains("cursor"), "{}", stdout(&out));
+
+    let out = run(&home, &["restore"]);
+    assert!(stdout(&out).contains("to restore"), "{}", stdout(&out));
+
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn backup_command_copies_configs() {
     let home = sample_home("backup");
     let out = run(&home, &["backup"]);

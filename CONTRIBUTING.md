@@ -210,3 +210,13 @@ One line per improvement cycle: date, what changed, why.
   IDEs are MCP *servers*, not clients — external tools connect TO them,
   and there is no documented JetBrains-side MCP client config file. The
   strict evidence bar wins. Backlog #7 is now complete. 86 tests.
+- **2026-09-23 · cycle 17 — `mcpmedic restore`.** The undo button for
+  mcpmedic's surgical edits. `restore` (or `restore --list`) shows
+  available backups from ~/.mcpmedic/backups grouped by tool, newest
+  first; `restore --latest [--tool <t>]` copies the most recent backup
+  back to the config location. Restores are themselves reversible — the
+  current config is backed up before the restore writes (via the same
+  `persist()` used by every mutation), so `restore --latest` twice
+  toggles between the two states. Research: the list → confirm →
+  restore pattern from git stash / cfgd / stash-away. 1 new e2e test;
+  87 total.

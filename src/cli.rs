@@ -198,6 +198,19 @@ pub(crate) enum Cmd {
         tool: Option<String>,
     },
 
+    /// Restore configs from automatic backups (list or --latest to restore).
+    Restore {
+        /// Only restore this tool (id or display name).
+        #[arg(long)]
+        tool: Option<String>,
+        /// List available backups without restoring.
+        #[arg(long)]
+        list: bool,
+        /// Restore the most recent backup for each tool (or one with --tool).
+        #[arg(long)]
+        latest: bool,
+    },
+
     /// Generate shell completions to stdout (bash, zsh, fish, elvish, powershell).
     Completions {
         /// Shell to generate completions for.

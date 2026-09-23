@@ -75,7 +75,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **86 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 15 tools
+- ✅ **87 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 15 tools
 
 ## Supported tools
 
@@ -233,6 +233,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `audit [--tool <t>]` | Security audit: hardcoded secrets in env/header values (known token formats + entropy heuristic), config file permissions |
 | `completions <shell>` | Print completions for bash, zsh, fish, elvish or powershell |
 | `backup [--tool <t>]` | Manual backup (also automatic before every mutation) |
+| `restore [--tool <t>] [--list] [--latest]` | Restore configs from automatic backups; the current state is backed up first, so restores are reversible |
 
 All commands accept `--project <dir>` to operate on repo-checked-in configs
 instead of user-global files; all mutation commands support `--dry-run`.
@@ -276,6 +277,9 @@ config rot.
 8. **Security audit** — `mcpmedic audit` scans env and header values for
    hardcoded credentials and warns when a config is readable by group/others;
    it exits 1 when a secret is found, so it gates CI.
+9. **Reversible restores** — `mcpmedic restore` backs up the current state
+   before writing the backup's contents, so a restore can itself be undone
+   with another `restore --latest`.
 
 ## Why not a GUI or a gateway?
 
@@ -297,7 +301,7 @@ improvement cycle; log in [`CONTRIBUTING.md`](CONTRIBUTING.md#improvement-log).
 | 3 | ~~Per-tool remote-transport dialects end-to-end~~ (read `httpUrl`/`serverUrl`, write each tool's exact remote shape) | 4 | 3 | M | ✅ cycle 7 |
 | 4 | ~~`enable` / `disable` servers without removal~~ (Codex/Zed `enabled`, Cline/Roo `disabled`) | 3 | 3 | L | ✅ cycle 8 |
 | 5 | ~~Project-scoped configs~~ (`--project <dir>`: `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json`, `.codex/config.toml`, `opencode.json`) | 4 | 4 | M | ✅ cycle 9 |
-| 6 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | **next up** |
+| 6 | ~~`--json` machine output for `scan` / `list` / `show` / `doctor` / `audit`~~ | 3 | 3 | L | ✅ cycle 12 |
 | 7 | ~~More tools~~ Warp, Kiro, TRAE, Antigravity added (JetBrains excluded: their IDEs are MCP *servers*, not clients) | 3 | 2 | L | ✅ cycles 15-16 |
 | 8 | Social preview PNG upload | 2 | 1 | L | ✅ cycle 10 (PNG ready in `docs/brand/`; upload in repo settings) |
 | 9 | ~~Absolute image URLs before `cargo publish`~~ | 2 | 1 | L | ✅ cycle 13 |
