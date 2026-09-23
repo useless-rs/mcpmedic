@@ -532,6 +532,85 @@ fn zed_context_servers_are_edited_without_touching_other_settings() {
 }
 
 #[test]
+fn doctor_fix_repairs_configs_and_keeps_backups() {
+    let home = temp_home("doctor-fix");
+    let cmd = ubiquitous_command();
+    write(
+        &home,
+        ".vscode/mcp.json",
+        &format!(r#"{{"servers": {{"nope": {{"command": "{cmd}"}}}}}}"#),
+    );
+    write(
+        &home,
+        zed_settings_rel(),
+        &format!(
+            r#"{{"theme": "One Dark", "context_servers": {{"old": {{"command": {{"path": "{cmd}", "args": ["-c"]}}}}}}}}"#
+        ),
+    );
+
+    let out = run(&home, &["doctor"]);
+    assert_eq!(out.status.code(), Some(1), "missing type is critical");
+
+    let out = run(&home, &["doctor", "--fix"]);
+    assert!(
+        out.status.success(),
+        "stderr: {}|stdout: {}",
+        stderr(&out),
+        stdout(&out)
+    );
+    let text = stdout(&out);
+    assert!(text.contains("added missing `type: stdio`"), "got: {text}");
+    assert!(text.contains("legacy nested `command`"), "got: {text}");
+    assert!(text.contains("everything looks healthy"), "got: {text}");
+
+    let vscode: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(".vscode/mcp.json")).unwrap())
+            .unwrap();
+    assert_eq!(vscode["servers"]["nope"]["type"], "stdio");
+
+    let zed: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(zed_settings_rel())).unwrap())
+            .unwrap();
+    assert_eq!(zed["theme"], "One Dark");
+    assert_eq!(zed["context_servers"]["old"]["command"], cmd);
+
+    let backups = std::fs::read_dir(home.join(".mcpmedic/backups"))
+        .unwrap()
+        .count();
+    assert_eq!(backups, 2, "one backup per repaired config");
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
+fn doctor_fix_dry_run_touches_nothing() {
+    let home = temp_home("doctor-fix-dry");
+    let cmd = ubiquitous_command();
+    write(
+        &home,
+        ".vscode/mcp.json",
+        &format!(r#"{{"servers": {{"nope": {{"command": "{cmd}"}}}}}}"#),
+    );
+    let before = std::fs::read_to_string(home.join(".vscode/mcp.json")).unwrap();
+
+    let out = run(&home, &["doctor", "--fix", "--dry-run"]);
+    assert!(stdout(&out).contains("would fix"), "got: {}", stdout(&out));
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "unfixed findings still fail the check"
+    );
+    assert_eq!(
+        before,
+        std::fs::read_to_string(home.join(".vscode/mcp.json")).unwrap()
+    );
+    assert!(!home.join(".mcpmedic").exists(), "no backups on dry run");
+
+    let out = run(&home, &["doctor", "--dry-run"]);
+    assert_eq!(out.status.code(), Some(2), "--dry-run requires --fix");
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn backup_command_copies_configs() {
     let home = sample_home("backup");
     let out = run(&home, &["backup"]);

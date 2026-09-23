@@ -91,4 +91,17 @@ One line per improvement cycle: date, what changed, why.
   seams close below ~32 px and the mark heals into a solid cross). Added a
   dedicated favicon tier. Both behaviors verified by rendering at 512/64/16
   px and pixel-sampling: distinct blocks at 512, solid cross at 16.
+- **2026-09-23 · cycle 6 — `doctor --fix`.** Closes the loop from diagnosis
+  to cure, restricted to provably safe repairs: VS Code entries missing
+  `type` (added by shape: `stdio`/`http`), Zed's legacy nested `command`
+  object (flattened), and remote entries whose `type` spelling the target
+  tool cannot read — Claude family needs `type: "http"`, Roo Code validates
+  the literal `streamable-http`, Cline uses `streamableHttp`, and generators
+  that emit a `transport` field produce configs those tools silently ignore
+  (research: Claude Code's official docs + a per-client transport-field
+  matrix). Hybrid command+url entries are never auto-fixed — they need human
+  judgment. Read-only configs report skippable repairs instead of editing.
+  Every repair is backed up before the atomic write; `--fix --dry-run`
+  previews without touching files. The same dialect knowledge powers new
+  doctor findings, so detection and repair can never disagree.
 

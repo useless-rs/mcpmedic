@@ -57,6 +57,15 @@ pub(crate) enum Cmd {
         /// Also fail on warnings, not just critical findings.
         #[arg(long)]
         strict: bool,
+
+        /// Apply safe automatic repairs (VS Code `type`, Zed legacy layout,
+        /// remote `type` spellings) before reporting.
+        #[arg(long)]
+        fix: bool,
+
+        /// With `--fix`: show what would change without touching any file.
+        #[arg(long, requires = "fix")]
+        dry_run: bool,
     },
 
     /// Compare the servers of two tools and show the drift.

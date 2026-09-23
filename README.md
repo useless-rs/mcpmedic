@@ -41,8 +41,11 @@ doesn't own, always atomically, always with an automatic backup first.
 ## Highlights
 
 - 🩺 **`doctor`** — parse errors, dead `command:` paths, VS Code entries
-  missing their mandatory `type`, cross-tool config drift, duplicate servers,
-  and context-window bloat warnings when a tool is carrying too many servers
+  missing their mandatory `type`, remote entries whose `type` spelling their
+  tool can't read, cross-tool config drift, duplicate servers, and
+  context-window bloat warnings — and **`--fix`** applies the provably safe
+  repairs (VS Code `type`, Zed legacy layout, remote `type` spellings), with
+  an automatic backup and a `--dry-run` preview when a tool is carrying too many servers
 - 🔀 **`diff`** — see exactly which servers two tools disagree about
 - 🧬 **`sync`** — additive merge from one tool to another (never deletes;
   `--force` overwrites drifted entries)
@@ -109,6 +112,7 @@ mcpmedic — first aid for MCP configs
 
 $ mcpmedic list                   # every server, every tool, normalized
 $ mcpmedic doctor                 # what is broken, drifted or bloated
+$ mcpmedic doctor --fix            # apply the safe repairs (backed up first)
 $ mcpmedic show context7           # where is this server configured?
 $ mcpmedic diff cursor windsurf   # the drift between two tools
 ```
@@ -161,7 +165,7 @@ mcpmedic completions fish  > ~/.config/fish/completions/mcpmedic.fish           
 | `scan` (default) | Detect installed tools and their configs, with server counts |
 | `list [--tool <t>]` | Table of every server per tool |
 | `show <name>` | Every tool that configures a given server + drift check |
-| `doctor [--tool <t>] [--strict]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat |
+| `doctor [--tool <t>] [--strict] [--fix]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat. `--fix` applies safe auto-repairs (`--dry-run` previews) |
 | `diff <a> <b>` | Server drift between two tools |
 | `add <name> --to <t> ...` | Add a stdio (`--command ... -- args`) or remote (`--url`) server |
 | `rm <name> --from <t>` | Remove one server |
@@ -214,14 +218,15 @@ improvement cycle; log in [`CONTRIBUTING.md`](CONTRIBUTING.md#improvement-log).
 | # | Item | I | E | Risk | Status |
 |---|---|---|---|---|---|
 | 1 | ~~Shell completions~~ (`mcpmedic completions bash\|zsh\|fish\|powershell`) | 4 | 2 | L | ✅ cycle 2 |
-| 2 | `doctor --fix` for safe auto-repairs (VS Code missing `type`, Zed legacy migration) | 4 | 3 | M | **next up** |
-| 3 | `enable` / `disable` servers without removal (Codex `enabled`, opencode `enabled: false`) | 3 | 3 | L | planned |
-| 4 | Project-scoped configs (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`) | 4 | 4 | M | planned |
-| 5 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | planned |
-| 6 | More tools: Warp, Kiro, JetBrains, TRAE, Antigravity | 3 | 2 | L | planned |
-| 7 | Social preview PNG upload (SVG ready in `docs/brand/`) | 2 | 1 | L | needs repo owner |
-| 8 | Absolute image URLs before `cargo publish` (crates.io can't render relative SVGs) | 2 | 1 | L | pre-publish step |
-| 9 | MCP reachability probe in `doctor` (spawn / HTTP HEAD with strict timeouts) | 4 | 4 | H | someday |
+| 2 | ~~`doctor --fix` safe auto-repairs~~ (VS Code `type`, Zed legacy, remote `type` spellings) | 4 | 3 | M | ✅ cycle 6 |
+| 3 | Per-tool remote-transport dialects end-to-end: read `httpUrl` (Gemini) / `serverUrl` (Windsurf), write each tool's exact remote shape | 4 | 3 | M | **next up** |
+| 4 | `enable` / `disable` servers without removal (Codex `enabled`, opencode `enabled: false`) | 3 | 3 | L | planned |
+| 5 | Project-scoped configs (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`) | 4 | 4 | M | planned |
+| 6 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | planned |
+| 7 | More tools: Warp, Kiro, JetBrains, TRAE, Antigravity | 3 | 2 | L | planned |
+| 8 | Social preview PNG upload (SVG ready in `docs/brand/`) | 2 | 1 | L | needs repo owner |
+| 9 | Absolute image URLs before `cargo publish` (crates.io can't render relative SVGs) | 2 | 1 | L | pre-publish step |
+| 10 | MCP reachability probe in `doctor` (spawn / HTTP HEAD with strict timeouts) | 4 | 4 | H | someday |
 
 Explicit non-goal: telemetry, ever. A config doctor that phones home would be
 a bad joke.

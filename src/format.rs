@@ -8,6 +8,7 @@ use serde_json::{Map, Value, json};
 use toml_edit::{Array, DocumentMut, Item, Table, TableLike, Value as TomlValue};
 
 use crate::model::{Servers, Transport};
+use crate::registry::ToolId;
 
 /// Config file dialects.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -274,9 +275,44 @@ pub(crate) fn remove_json_entry(format: Format, doc: &mut Value, name: &str) -> 
     servers.remove(name).is_some()
 }
 
+/// Per-tool spelling of the remote-transport `type` field. `None` for tools
+/// that infer the transport from the URL field (Cursor, Windsurf, Gemini CLI)
+/// or handle it elsewhere (VS Code, Zed, Codex, opencode).
+struct RemoteTypeRules {
+    /// The value this tool documents for a streamable-HTTP server.
+    expected: &'static str,
+    /// Every spelling the tool accepts without breaking.
+    accepted: &'static [&'static str],
+}
+
+fn remote_type_rules(tool: ToolId) -> Option<RemoteTypeRules> {
+    match tool {
+        ToolId::ClaudeCode | ToolId::ClaudeDesktop => Some(RemoteTypeRules {
+            expected: "http",
+            accepted: &["http", "streamable-http", "sse"],
+        }),
+        ToolId::RooCode => Some(RemoteTypeRules {
+            expected: "streamable-http",
+            accepted: &["streamable-http", "sse"],
+        }),
+        ToolId::Cline => Some(RemoteTypeRules {
+            expected: "streamableHttp",
+            accepted: &["streamableHttp", "sse"],
+        }),
+        _ => None,
+    }
+}
+
+/// A pure-remote entry: a URL, no `command` — the only shape where `type`
+/// fixes are provably safe. Hybrid command+url entries need human judgment.
+fn is_pure_remote(obj: &Map<String, Value>) -> bool {
+    obj.get("url").and_then(Value::as_str).is_some() && !obj.contains_key("command")
+}
+
 /// Scan a raw JSON document for issues that only exist per dialect, e.g. VS
-/// Code requiring a `type` on every entry.
-pub(crate) fn json_raw_issues(format: Format, doc: &Value) -> Vec<String> {
+/// Code requiring a `type` on every entry, or remote entries missing the
+/// `type` spelling their tool can actually read.
+pub(crate) fn json_raw_issues(tool: ToolId, format: Format, doc: &Value) -> Vec<String> {
     let mut issues = Vec::new();
     let Some(key) = format.servers_key() else {
         return issues;
@@ -296,6 +332,32 @@ pub(crate) fn json_raw_issues(format: Format, doc: &Value) -> Vec<String> {
             issues.push(format!(
                 "server `{name}`: VS Code requires a `type` field (`stdio` or `http`)"
             ));
+        }
+        if format == Format::McpServers {
+            if let Some(rules) = remote_type_rules(tool) {
+                let declared = obj.get("type").and_then(Value::as_str);
+                if is_pure_remote(obj) {
+                    match declared {
+                        None => issues.push(format!(
+                            "server `{name}`: has `url` but no `type` — {} requires `type: \"{}\"`",
+                            tool.as_str(),
+                            rules.expected
+                        )),
+                        Some(t) if !rules.accepted.contains(&t) => issues.push(format!(
+                            "server `{name}`: `type: \"{t}\"` is not accepted by {} (expects `\"{}\"`)",
+                            tool.as_str(),
+                            rules.expected
+                        )),
+                        _ => {}
+                    }
+                }
+                if declared.is_none() && is_pure_remote(obj) && obj.contains_key("transport") {
+                    issues.push(format!(
+                        "server `{name}`: uses `transport`, which {} ignores — the field is named `type`",
+                        tool.as_str()
+                    ));
+                }
+            }
         }
         for env_key in ["env", "environment"] {
             if let Some(Value::Object(env)) = obj.get(env_key) {
@@ -318,6 +380,98 @@ pub(crate) fn json_raw_issues(format: Format, doc: &Value) -> Vec<String> {
         }
     }
     issues
+}
+
+/// Apply provably safe repairs to a parsed JSON config, in place. Returns a
+/// human-readable line for each repair. Only ever adds or normalizes fields
+/// the target tool reads — user data is never removed except `transport`,
+/// which the tool ignores and which is moved into `type`.
+pub(crate) fn fix_json_config(tool: ToolId, format: Format, doc: &mut Value) -> Vec<String> {
+    let mut fixes = Vec::new();
+    let Some(key) = format.servers_key() else {
+        return fixes;
+    };
+    let Some(Value::Object(servers)) = doc.get_mut(key) else {
+        return fixes;
+    };
+    for (name, entry) in servers.iter_mut() {
+        let Value::Object(obj) = entry else {
+            continue;
+        };
+        match format {
+            Format::Vscode => {
+                if !obj.contains_key("type") {
+                    let kind = if obj.get("url").is_some() {
+                        "http"
+                    } else {
+                        "stdio"
+                    };
+                    obj.insert("type".into(), json!(kind));
+                    fixes.push(format!(
+                        "server `{name}`: added missing `type: {kind}` (required by VS Code)"
+                    ));
+                }
+            }
+            Format::Zed => {
+                let legacy = obj
+                    .get("command")
+                    .and_then(Value::as_object)
+                    .and_then(|cmd| {
+                        let path = cmd.get("path").and_then(Value::as_str)?;
+                        let args = string_array(cmd.get("args").or_else(|| obj.get("args")));
+                        let env = string_map(cmd.get("env").or_else(|| obj.get("env")));
+                        Some((path.to_owned(), args, env))
+                    });
+                if let Some((path, args, env)) = legacy {
+                    obj.insert("command".into(), json!(path));
+                    if !args.is_empty() {
+                        obj.insert("args".into(), json!(args));
+                    }
+                    if !env.is_empty() {
+                        obj.insert("env".into(), json!(env));
+                    }
+                    fixes.push(format!(
+                        "server `{name}`: migrated Zed's legacy nested `command` object to the flat layout"
+                    ));
+                }
+            }
+            Format::McpServers => {
+                let Some(rules) = remote_type_rules(tool) else {
+                    continue;
+                };
+                if !is_pure_remote(obj) {
+                    continue;
+                }
+                let declared = obj.get("type").and_then(Value::as_str).map(str::to_owned);
+                match declared.as_deref() {
+                    None => {
+                        let moved_transport = obj.remove("transport").is_some();
+                        obj.insert("type".into(), json!(rules.expected));
+                        let source = if moved_transport {
+                            format!("moved `transport` to `type: \"{}\"`", rules.expected)
+                        } else {
+                            format!(
+                                "added `type: \"{}\"` ({tool} skips entries without it)",
+                                rules.expected,
+                                tool = tool.as_str()
+                            )
+                        };
+                        fixes.push(format!("server `{name}`: {source}"));
+                    }
+                    Some(t) if !rules.accepted.contains(&t) => {
+                        obj.insert("type".into(), json!(rules.expected));
+                        fixes.push(format!(
+                            "server `{name}`: corrected `type: \"{t}\"` → `\"{}\"`",
+                            rules.expected
+                        ));
+                    }
+                    _ => {}
+                }
+            }
+            Format::CodexToml | Format::Opencode => {}
+        }
+    }
+    fixes
 }
 
 // ---------------------------------------------------------------------------
@@ -630,9 +784,89 @@ mod tests {
     fn vscode_raw_issues_flags_missing_type() {
         let doc =
             json!({"servers": {"nope": {"command": "x"}, "ok": {"type": "stdio", "command": "y"}}});
-        let issues = json_raw_issues(Format::Vscode, &doc);
+        let issues = json_raw_issues(ToolId::Vscode, Format::Vscode, &doc);
         assert_eq!(issues.len(), 1);
         assert!(issues[0].contains("nope"));
+    }
+
+    #[test]
+    fn raw_issues_flag_remote_type_dialects() {
+        let claude = json!({"mcpServers": {"r": {"url": "https://x"}}});
+        let issues = json_raw_issues(ToolId::ClaudeCode, Format::McpServers, &claude);
+        assert_eq!(issues.len(), 1);
+        assert!(issues[0].contains("requires `type: \"http\"`"));
+
+        let roo = json!({"mcpServers": {"r": {"url": "https://x", "type": "http"}}});
+        let issues = json_raw_issues(ToolId::RooCode, Format::McpServers, &roo);
+        assert!(issues[0].contains("not accepted"));
+
+        let transport = json!({"mcpServers": {"r": {"url": "https://x", "transport": "http"}}});
+        let issues = json_raw_issues(ToolId::ClaudeCode, Format::McpServers, &transport);
+        assert!(issues.iter().any(|i| i.contains("ignores")));
+
+        let cursor = json!({"mcpServers": {"r": {"url": "https://x"}}});
+        assert!(json_raw_issues(ToolId::Cursor, Format::McpServers, &cursor).is_empty());
+
+        let hybrid = json!({"mcpServers": {"r": {"command": "x", "url": "https://x"}}});
+        assert!(json_raw_issues(ToolId::ClaudeCode, Format::McpServers, &hybrid).is_empty());
+    }
+
+    #[test]
+    fn fix_repairs_remote_type_dialects_per_tool() {
+        let mut claude = json!({"mcpServers": {"r": {"url": "https://x", "headers": {"A": "b"}}}});
+        let fixes = fix_json_config(ToolId::ClaudeCode, Format::McpServers, &mut claude);
+        assert_eq!(fixes.len(), 1);
+        assert_eq!(claude["mcpServers"]["r"]["type"], json!("http"));
+        assert_eq!(claude["mcpServers"]["r"]["headers"]["A"], json!("b"));
+
+        let mut roo = json!({"mcpServers": {"r": {"url": "https://x", "type": "http"}}});
+        fix_json_config(ToolId::RooCode, Format::McpServers, &mut roo);
+        assert_eq!(roo["mcpServers"]["r"]["type"], json!("streamable-http"));
+
+        let mut cline = json!({"mcpServers": {"r": {"url": "https://x", "transport": "http"}}});
+        fix_json_config(ToolId::Cline, Format::McpServers, &mut cline);
+        assert_eq!(cline["mcpServers"]["r"]["type"], json!("streamableHttp"));
+        assert!(cline["mcpServers"]["r"].get("transport").is_none());
+
+        let mut hybrid = json!({"mcpServers": {"r": {"command": "x", "url": "https://x"}}});
+        assert!(fix_json_config(ToolId::ClaudeCode, Format::McpServers, &mut hybrid).is_empty());
+        assert!(
+            hybrid["mcpServers"]["r"].get("type").is_none(),
+            "hybrid entries must never be auto-fixed"
+        );
+    }
+
+    #[test]
+    fn fix_adds_vscode_type_by_shape() {
+        let mut doc = json!({
+            "servers": {
+                "s": {"command": "x"},
+                "r": {"url": "https://x"},
+                "ok": {"type": "http", "url": "https://y"}
+            },
+            "inputs": []
+        });
+        let fixes = fix_json_config(ToolId::Vscode, Format::Vscode, &mut doc);
+        assert_eq!(fixes.len(), 2);
+        assert_eq!(doc["servers"]["s"]["type"], json!("stdio"));
+        assert_eq!(doc["servers"]["r"]["type"], json!("http"));
+        assert_eq!(doc["inputs"], json!([]));
+    }
+
+    #[test]
+    fn fix_migrates_zed_legacy_layout() {
+        let mut doc = json!({
+            "theme": "One Dark",
+            "context_servers": {
+                "old": {"command": {"path": "sh", "args": ["-c"]}, "env": {"K": "V"}}
+            }
+        });
+        let fixes = fix_json_config(ToolId::Zed, Format::Zed, &mut doc);
+        assert_eq!(fixes.len(), 1);
+        assert_eq!(doc["context_servers"]["old"]["command"], json!("sh"));
+        assert_eq!(doc["context_servers"]["old"]["args"], json!(["-c"]));
+        assert_eq!(doc["context_servers"]["old"]["env"]["K"], json!("V"));
+        assert_eq!(doc["theme"], json!("One Dark"));
     }
 
     #[test]

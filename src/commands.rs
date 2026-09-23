@@ -62,7 +62,12 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
         Cmd::Scan => cmd_scan(),
         Cmd::List { tool } => cmd_list(&ctx, tool.as_deref()),
         Cmd::Show { name } => cmd_show(&ctx, &name),
-        Cmd::Doctor { tool, strict } => cmd_doctor(&ctx, tool.as_deref(), strict),
+        Cmd::Doctor {
+            tool,
+            strict,
+            fix,
+            dry_run,
+        } => cmd_doctor(&ctx, tool.as_deref(), strict, fix, dry_run),
         Cmd::Diff { a, b } => cmd_diff(&ctx, &a, &b),
         Cmd::Add {
             name,
@@ -407,7 +412,7 @@ fn cmd_show(ctx: &Ctx, name: &str) -> ExitCode {
 // doctor / diff
 // ---------------------------------------------------------------------------
 
-fn cmd_doctor(ctx: &Ctx, tool: Option<&str>, strict: bool) -> ExitCode {
+fn cmd_doctor(ctx: &Ctx, tool: Option<&str>, strict: bool, fix: bool, dry_run: bool) -> ExitCode {
     let specs: Vec<&'static ToolSpec> = match tool {
         Some(name) => match resolve(name) {
             Ok(spec) => vec![spec],
@@ -416,13 +421,23 @@ fn cmd_doctor(ctx: &Ctx, tool: Option<&str>, strict: bool) -> ExitCode {
         None => registry::registry().iter().collect(),
     };
 
-    let loads: Vec<ToolLoad> = specs
-        .into_iter()
+    let mut loads: Vec<ToolLoad> = specs
+        .iter()
+        .copied()
         .map(|spec| ToolLoad::new(spec.id, spec.format, ctx.load(spec)))
         .collect();
 
     let path_env = std::env::var("PATH").unwrap_or_default();
-    let findings = doctor::diagnose(&loads, &ctx.home, &path_env);
+    let mut findings = doctor::diagnose(&loads, &ctx.home, &path_env);
+
+    if fix {
+        match apply_repairs(ctx, &specs, &mut loads, dry_run) {
+            Ok(printed) if printed => println!(),
+            Ok(_) => {}
+            Err(e) => return fail(&e),
+        }
+        findings = doctor::diagnose(&loads, &ctx.home, &path_env);
+    }
 
     if findings.is_empty() {
         println!(
@@ -479,6 +494,60 @@ fn cmd_doctor(ctx: &Ctx, tool: Option<&str>, strict: bool) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// Apply safe repairs to every loaded (and editable) JSON config. Returns
+/// whether anything was printed, or an error if persisting failed.
+/// Codex TOML has no safe auto-repairs yet and is skipped.
+fn apply_repairs(
+    ctx: &Ctx,
+    specs: &[&'static ToolSpec],
+    loads: &mut [ToolLoad],
+    dry_run: bool,
+) -> Result<bool, String> {
+    let mut printed = false;
+    for (spec, load) in specs.iter().zip(loads) {
+        let ConfigState::Loaded(cfg) = &mut load.state else {
+            continue;
+        };
+        let RawDoc::Json(doc) = &mut cfg.raw else {
+            continue;
+        };
+        if !cfg.editable {
+            let mut preview = doc.clone();
+            let possible = format::fix_json_config(spec.id, spec.format, &mut preview);
+            if !possible.is_empty() {
+                println!(
+                    "  {} {} config is read-only — {} repair(s) skipped",
+                    report::glyph_warn(),
+                    spec.display,
+                    possible.len()
+                );
+                printed = true;
+            }
+            continue;
+        }
+        if dry_run {
+            let mut preview = doc.clone();
+            for repair in format::fix_json_config(spec.id, spec.format, &mut preview) {
+                println!("  ✚ would fix — {repair}");
+                printed = true;
+            }
+            continue;
+        }
+        let fixes = format::fix_json_config(spec.id, spec.format, doc);
+        if fixes.is_empty() {
+            continue;
+        }
+        for repair in &fixes {
+            println!("  ✚ fixed — {repair}");
+        }
+        if let Some(backup) = commit(ctx, spec, &cfg.raw, false)? {
+            println!("      backup: {}", backup.display());
+        }
+        printed = true;
+    }
+    Ok(printed)
 }
 
 fn severity_label(severity: Severity) -> &'static str {
