@@ -133,4 +133,18 @@ One line per improvement cycle: date, what changed, why.
   gap: `sync`/`export` don't carry the flag (the normalized model is
   transport-only) — parked state stays tool-local until the model grows a
   state field. 8 new tests, 75 total.
+- **2026-09-23 · cycle 9 — `--project` mode.** Every command accepts
+  `--project <dir>` to operate on the project-scoped configs tools document
+  for repos: Claude Code `.mcp.json`, Cursor `.cursor/mcp.json`, VS Code
+  `.vscode/mcp.json`, Gemini CLI `.gemini/settings.json`, Codex
+  `.codex/config.toml`, opencode `opencode.json` — first-party doc evidence
+  for each. Windsurf, Cline and Roo Code stay out until their own docs
+  confirm a project scope (third-party sync tools claim paths for them, but
+  other sources say global-only; the strict evidence bar wins). In project
+  mode, non-project tools act as not-installed and edits to them refuse;
+  fresh project configs auto-create their parent directories (`.vscode/`,
+  `.gemini/`); backups stay in the user-global `~/.mcpmedic/backups` so
+  nothing pollutes the repo. The single path funnel (`ctx.path`/`ctx.load`)
+  made this a contained change — `store::load` now takes the path
+  explicitly. 2 new tests, 77 total.
 

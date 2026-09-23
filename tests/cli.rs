@@ -796,6 +796,90 @@ fn disable_refuses_tools_without_a_documented_flag() {
 }
 
 #[test]
+fn project_mode_reads_and_writes_project_configs() {
+    let home = temp_home("project-mode");
+    let project = home.join("repo");
+    let cmd = ubiquitous_command();
+    write(
+        &project,
+        ".mcp.json",
+        &format!(r#"{{"mcpServers": {{"shared": {{"command": "{cmd}"}}}}}}"#),
+    );
+    write(
+        &project,
+        ".cursor/mcp.json",
+        &format!(r#"{{"mcpServers": {{"shared": {{"command": "{cmd}"}}}}}}"#),
+    );
+    let project_arg = project.to_str().unwrap();
+
+    // Scan in project mode: only project-capable tools participate.
+    let out = run(&home, &["scan", "--project", project_arg]);
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+    let text = stdout(&out);
+    assert!(text.contains("claude-code"), "got: {text}");
+    assert!(text.contains("cursor"), "got: {text}");
+    assert!(!text.contains("zed"), "zed has no project scope: {text}");
+    assert!(text.contains("2 tool(s) configured"), "got: {text}");
+
+    // list shows project servers from both files
+    let out = run(&home, &["list", "--project", project_arg]);
+    assert!(stdout(&out).contains("shared"), "got: {}", stdout(&out));
+
+    // diff: identical project configs across tools
+    let out = run(
+        &home,
+        &["diff", "cursor", "claude-code", "--project", project_arg],
+    );
+    assert!(stdout(&out).contains("no drift"), "got: {}", stdout(&out));
+
+    let out = run(
+        &home,
+        &[
+            "add",
+            "docs",
+            "--to",
+            "vscode",
+            "--url",
+            "https://example.com/mcp",
+            "--project",
+            project_arg,
+        ],
+    );
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+    let vscode: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(project.join(".vscode/mcp.json")).unwrap())
+            .unwrap();
+    assert_eq!(vscode["servers"]["docs"]["url"], "https://example.com/mcp");
+    assert_eq!(vscode["servers"]["docs"]["type"], "http");
+
+    // doctor in project mode checks the project files and stays healthy
+    let out = run(&home, &["doctor", "--project", project_arg]);
+    assert_eq!(out.status.code(), Some(0), "{}", stdout(&out));
+
+    // tools without a documented project scope refuse --project edits
+    let out = run(
+        &home,
+        &[
+            "add",
+            "x",
+            "--to",
+            "zed",
+            "--command",
+            "sh",
+            "--project",
+            project_arg,
+        ],
+    );
+    assert_eq!(out.status.code(), Some(2));
+    assert!(
+        stderr(&out).contains("no project-scoped config"),
+        "got: {}",
+        stderr(&out)
+    );
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn backup_command_copies_configs() {
     let home = sample_home("backup");
     let out = run(&home, &["backup"]);

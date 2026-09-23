@@ -85,6 +85,9 @@ pub(crate) struct ToolSpec {
     /// The tool's per-server disable switch, where documented. `enable` and
     /// `disable` refuse to run for tools without one.
     pub disable: Option<DisableFlag>,
+    /// The project-scoped config path, where the tool documents one. In
+    /// `--project` mode only these tools participate.
+    pub project_path: Option<fn(&Path) -> PathBuf>,
     /// Resolve the config path relative to a home directory.
     pub path: fn(&Path, &EnvOverrides) -> PathBuf,
 }
@@ -101,6 +104,7 @@ static REGISTRY: &[ToolSpec] = &[
         format: Format::McpServers,
         writable: true,
         disable: None,
+        project_path: Some(|project| project.join(".mcp.json")),
         path: |home, env| {
             env.claude_config_dir
                 .clone()
@@ -113,6 +117,7 @@ static REGISTRY: &[ToolSpec] = &[
         format: Format::McpServers,
         writable: true,
         disable: None,
+        project_path: None,
         path: |home, _| {
             if cfg!(target_os = "macos") {
                 home.join("Library/Application Support/Claude/claude_desktop_config.json")
@@ -129,6 +134,7 @@ static REGISTRY: &[ToolSpec] = &[
         format: Format::McpServers,
         writable: true,
         disable: None,
+        project_path: Some(|project| project.join(".cursor").join("mcp.json")),
         path: |home, _| home.join(".cursor").join("mcp.json"),
     },
     ToolSpec {
@@ -137,6 +143,7 @@ static REGISTRY: &[ToolSpec] = &[
         format: Format::McpServers,
         writable: true,
         disable: None,
+        project_path: None,
         path: |home, _| {
             if cfg!(windows) {
                 home.join("AppData/Roaming/Codeium/windsurf/mcp_config.json")
@@ -151,6 +158,7 @@ static REGISTRY: &[ToolSpec] = &[
         format: Format::Vscode,
         writable: true,
         disable: None,
+        project_path: Some(|project| project.join(".vscode").join("mcp.json")),
         path: |home, _| home.join(".vscode").join("mcp.json"),
     },
     ToolSpec {
@@ -162,6 +170,7 @@ static REGISTRY: &[ToolSpec] = &[
             key: "enabled",
             off_when: false,
         }),
+        project_path: None,
         path: |home, _| {
             if cfg!(windows) {
                 home.join("AppData/Roaming/Zed/settings.json")
@@ -176,6 +185,7 @@ static REGISTRY: &[ToolSpec] = &[
         format: Format::McpServers,
         writable: true,
         disable: None,
+        project_path: Some(|project| project.join(".gemini").join("settings.json")),
         path: |home, _| home.join(".gemini").join("settings.json"),
     },
     ToolSpec {
@@ -187,6 +197,7 @@ static REGISTRY: &[ToolSpec] = &[
             key: "enabled",
             off_when: false,
         }),
+        project_path: Some(|project| project.join(".codex").join("config.toml")),
         path: |home, env| {
             env.codex_home
                 .clone()
@@ -203,6 +214,7 @@ static REGISTRY: &[ToolSpec] = &[
             key: "disabled",
             off_when: true,
         }),
+        project_path: None,
         path: |home, _| {
             vscode_global_storage(home)
                 .join("saoudrizwan.claude-dev/settings/cline_mcp_settings.json")
@@ -217,6 +229,7 @@ static REGISTRY: &[ToolSpec] = &[
             key: "disabled",
             off_when: true,
         }),
+        project_path: None,
         path: |home, _| {
             vscode_global_storage(home)
                 .join("rooveterinaryinc.roo-cline/settings/mcp_settings.json")
@@ -230,6 +243,7 @@ static REGISTRY: &[ToolSpec] = &[
         // a JSON rewrite) and the v2 layout (`mcp.servers`) is still moving.
         writable: false,
         disable: None,
+        project_path: Some(|project| project.join("opencode.json")),
         path: |home, _| {
             let json = home.join(".config/opencode/opencode.json");
             let jsonc = home.join(".config/opencode/opencode.jsonc");
@@ -316,6 +330,49 @@ mod tests {
             assert!(
                 by_id(id).disable.is_none(),
                 "{id:?} must not claim an undocumented flag"
+            );
+        }
+    }
+
+    #[test]
+    fn project_paths_are_set_only_where_documented() {
+        let by_id = |id: ToolId| registry().iter().find(|s| s.id == id).unwrap();
+        let project = Path::new("/repo");
+        let project_of = |id: ToolId| (by_id(id).project_path.unwrap())(project);
+        assert_eq!(
+            project_of(ToolId::ClaudeCode),
+            PathBuf::from("/repo/.mcp.json")
+        );
+        assert_eq!(
+            project_of(ToolId::Cursor),
+            PathBuf::from("/repo/.cursor/mcp.json")
+        );
+        assert_eq!(
+            project_of(ToolId::Vscode),
+            PathBuf::from("/repo/.vscode/mcp.json")
+        );
+        assert_eq!(
+            project_of(ToolId::GeminiCli),
+            PathBuf::from("/repo/.gemini/settings.json")
+        );
+        assert_eq!(
+            project_of(ToolId::Codex),
+            PathBuf::from("/repo/.codex/config.toml")
+        );
+        assert_eq!(
+            project_of(ToolId::Opencode),
+            PathBuf::from("/repo/opencode.json")
+        );
+        for id in [
+            ToolId::ClaudeDesktop,
+            ToolId::Windsurf,
+            ToolId::Zed,
+            ToolId::Cline,
+            ToolId::RooCode,
+        ] {
+            assert!(
+                by_id(id).project_path.is_none(),
+                "{id:?} must not claim a project scope without first-party docs"
             );
         }
     }

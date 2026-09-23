@@ -53,6 +53,11 @@ doesn't own, always atomically, always with an automatic backup first.
   tool's own documented disable switch (Codex and Zed `enabled`, Cline and
   Roo Code `disabled`); parked servers are marked `(off)` in `list`, and
   `doctor` knows a parked server is intentional
+- 📂 **`--project <dir>`** — operate on the configs checked into a repo:
+  Claude Code `.mcp.json`, Cursor `.cursor/mcp.json`, VS Code
+  `.vscode/mcp.json`, Gemini CLI `.gemini/settings.json`, Codex
+  `.codex/config.toml`, opencode `opencode.json` — the same surgical edits,
+  scoped to the project
 - 🪡 **Surgical edits** — `add`/`rm` write the *exact* dialect each tool
   expects, preserve every unrelated key, use atomic `write+rename`, and back up
   the previous file to `~/.mcpmedic/backups/` first
@@ -61,7 +66,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **75 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
+- ✅ **77 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
 
 ## Supported tools
 
@@ -170,6 +175,14 @@ mcpmedic completions zsh   > ~/.zfunc/_mcpmedic                                 
 mcpmedic completions fish  > ~/.config/fish/completions/mcpmedic.fish             # fish
 ```
 
+Work on a repo's checked-in configs (`.mcp.json` and friends):
+
+```sh
+mcpmedic scan --project .        # what MCP servers does this repo declare?
+mcpmedic doctor --project .      # health-check the project setup
+mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --project .
+```
+
 ## Commands
 
 | Command | What it does |
@@ -188,7 +201,8 @@ mcpmedic completions fish  > ~/.config/fish/completions/mcpmedic.fish           
 | `completions <shell>` | Print completions for bash, zsh, fish, elvish or powershell |
 | `backup [--tool <t>]` | Manual backup (also automatic before every mutation) |
 
-All mutation commands support `--dry-run`.
+All commands accept `--project <dir>` to operate on repo-checked-in configs
+instead of user-global files; all mutation commands support `--dry-run`.
 
 ## Exit codes
 
@@ -234,8 +248,8 @@ improvement cycle; log in [`CONTRIBUTING.md`](CONTRIBUTING.md#improvement-log).
 | 2 | ~~`doctor --fix` safe auto-repairs~~ (VS Code `type`, Zed legacy, remote `type` spellings) | 4 | 3 | M | ✅ cycle 6 |
 | 3 | ~~Per-tool remote-transport dialects end-to-end~~ (read `httpUrl`/`serverUrl`, write each tool's exact remote shape) | 4 | 3 | M | ✅ cycle 7 |
 | 4 | ~~`enable` / `disable` servers without removal~~ (Codex/Zed `enabled`, Cline/Roo `disabled`) | 3 | 3 | L | ✅ cycle 8 |
-| 5 | Project-scoped configs (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`) | 4 | 4 | M | **next up** |
-| 6 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | planned |
+| 5 | ~~Project-scoped configs~~ (`--project <dir>`: `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json`, `.codex/config.toml`, `opencode.json`) | 4 | 4 | M | ✅ cycle 9 |
+| 6 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | **next up** |
 | 7 | More tools: Warp, Kiro, JetBrains, TRAE, Antigravity | 3 | 2 | L | planned |
 | 8 | Social preview PNG upload (SVG ready in `docs/brand/`) | 2 | 1 | L | needs repo owner |
 | 9 | Absolute image URLs before `cargo publish` (crates.io can't render relative SVGs) | 2 | 1 | L | pre-publish step |

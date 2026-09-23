@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::format::{self, Format};
 use crate::model::Servers;
-use crate::registry::{EnvOverrides, ToolSpec};
+use crate::registry::ToolSpec;
 
 /// A parsed config document, kept for surgical edits.
 pub(crate) enum RawDoc {
@@ -59,13 +59,12 @@ pub(crate) enum ConfigState {
     Loaded(Box<LoadedConfig>),
 }
 
-/// Load one tool's config relative to `home`.
-pub(crate) fn load(spec: &ToolSpec, home: &Path, env: &EnvOverrides) -> ConfigState {
-    let path = (spec.path)(home, env);
+/// Load one tool's config from an explicit path.
+pub(crate) fn load(spec: &ToolSpec, path: &Path) -> ConfigState {
     if !path.exists() {
         return ConfigState::Missing;
     }
-    let contents = match fs::read_to_string(&path) {
+    let contents = match fs::read_to_string(path) {
         Ok(c) => c,
         Err(e) => return ConfigState::ParseError(format!("cannot read file: {e}")),
     };
@@ -178,13 +177,15 @@ mod tests {
 
     #[test]
     fn missing_config_is_reported() {
-        let env = EnvOverrides::default();
         let spec = crate::registry::registry()
             .iter()
             .find(|s| s.id == crate::registry::ToolId::Cursor)
             .unwrap();
         let home = std::env::temp_dir().join(format!("mcpmedic-unit-{}", std::process::id()));
-        assert!(matches!(load(spec, &home, &env), ConfigState::Missing));
+        assert!(matches!(
+            load(spec, &home.join(".cursor/mcp.json")),
+            ConfigState::Missing
+        ));
     }
 
     #[test]
@@ -198,12 +199,11 @@ mod tests {
         )
         .unwrap();
 
-        let env = EnvOverrides::default();
         let spec = crate::registry::registry()
             .iter()
             .find(|s| s.id == crate::registry::ToolId::Cursor)
             .unwrap();
-        let ConfigState::Loaded(cfg) = load(spec, &home, &env) else {
+        let ConfigState::Loaded(cfg) = load(spec, &cursor_dir.join("mcp.json")) else {
             panic!("expected loaded config");
         };
         assert!(!cfg.editable, "commented configs must not be editable");

@@ -26,6 +26,13 @@ const STYLES: Styles = Styles::styled()
     styles = STYLES
 )]
 pub(crate) struct Cli {
+    /// Operate on project-scoped configs (`.mcp.json`, `.cursor/mcp.json`,
+    /// `.vscode/mcp.json`, ...) rooted at this directory instead of the
+    /// user-global files. Only tools that document a project scope
+    /// participate.
+    #[arg(long, global = true, value_name = "DIR")]
+    pub project: Option<PathBuf>,
+
     #[command(subcommand)]
     pub cmd: Option<Cmd>,
 }

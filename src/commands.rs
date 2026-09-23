@@ -21,22 +21,50 @@ use crate::sync;
 struct Ctx {
     home: PathBuf,
     env: EnvOverrides,
+    project: Option<PathBuf>,
 }
 
 impl Ctx {
-    fn new() -> Self {
+    fn new(project: Option<PathBuf>) -> Self {
         Self {
             home: home_dir(),
             env: EnvOverrides::from_env(),
+            project: project.map(|dir| {
+                if dir.is_absolute() {
+                    dir
+                } else {
+                    std::env::current_dir().unwrap_or_default().join(dir)
+                }
+            }),
         }
     }
 
     fn path(&self, spec: &ToolSpec) -> PathBuf {
-        (spec.path)(&self.home, &self.env)
+        if let (Some(project), Some(project_path)) = (&self.project, spec.project_path) {
+            project_path(project)
+        } else {
+            (spec.path)(&self.home, &self.env)
+        }
     }
 
     fn load(&self, spec: &'static ToolSpec) -> ConfigState {
-        store::load(spec, &self.home, &self.env)
+        if self.project.is_some() && spec.project_path.is_none() {
+            return ConfigState::Missing;
+        }
+        store::load(spec, &self.path(spec))
+    }
+
+    /// The specs participating in this mode: with `--project`, only tools
+    /// that document a project-scoped config.
+    fn specs(&self) -> Vec<&'static ToolSpec> {
+        if self.project.is_some() {
+            registry::registry()
+                .iter()
+                .filter(|spec| spec.project_path.is_some())
+                .collect()
+        } else {
+            registry::registry().iter().collect()
+        }
     }
 }
 
@@ -55,12 +83,12 @@ fn home_dir() -> PathBuf {
 
 /// Entry point: dispatch a parsed CLI to a command.
 pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
+    let ctx = Ctx::new(cli.project);
     let Some(cmd) = cli.cmd else {
-        return cmd_scan();
+        return cmd_scan(&ctx);
     };
-    let ctx = Ctx::new();
     match cmd {
-        Cmd::Scan => cmd_scan(),
+        Cmd::Scan => cmd_scan(&ctx),
         Cmd::List { tool } => cmd_list(&ctx, tool.as_deref()),
         Cmd::Show { name } => cmd_show(&ctx, &name),
         Cmd::Doctor {
@@ -146,7 +174,25 @@ fn load_mutable(ctx: &Ctx, spec: &'static ToolSpec) -> Result<(LoadedConfig, boo
                 .parent()
                 .map(Path::to_path_buf)
                 .unwrap_or_default();
-            if parent.exists() {
+            let may_create = if let Some(project) = &ctx.project {
+                if spec.project_path.is_none() {
+                    return Err(format!(
+                        "{} has no project-scoped config — --project does not apply to it",
+                        spec.display
+                    ));
+                }
+                if !project.exists() {
+                    return Err(format!(
+                        "project directory {} does not exist",
+                        project.display()
+                    ));
+                }
+                let _ = std::fs::create_dir_all(&parent);
+                true
+            } else {
+                parent.exists()
+            };
+            if may_create {
                 let raw = if spec.format == Format::CodexToml {
                     RawDoc::Toml(toml_edit::DocumentMut::new())
                 } else {
@@ -236,16 +282,18 @@ fn parse_kv_pairs(items: &[String], flag: &str) -> Result<Vec<(String, String)>,
 // scan / list / show
 // ---------------------------------------------------------------------------
 
-fn cmd_scan() -> ExitCode {
-    let ctx = Ctx::new();
+fn cmd_scan(ctx: &Ctx) -> ExitCode {
     println!("{}", report::brand_header());
+    if let Some(project) = &ctx.project {
+        println!("  project: {}", project.display());
+    }
     println!();
 
     let mut configured = 0;
     let mut total_servers = 0;
     let mut with_findings = 0;
 
-    for spec in registry::registry() {
+    for spec in ctx.specs() {
         let shown = display_path(&ctx.path(spec), &ctx.home);
         match ctx.load(spec) {
             ConfigState::Missing => {
@@ -310,7 +358,7 @@ fn cmd_list(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
             Ok(spec) => vec![spec],
             Err(e) => return fail(&e),
         },
-        None => registry::registry().iter().collect(),
+        None => ctx.specs(),
     };
 
     let mut any = false;
@@ -386,7 +434,7 @@ fn cmd_list(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
 
 fn cmd_show(ctx: &Ctx, name: &str) -> ExitCode {
     let mut hits: Vec<(&'static ToolSpec, Transport, bool)> = Vec::new();
-    for spec in registry::registry() {
+    for spec in ctx.specs() {
         if let ConfigState::Loaded(cfg) = ctx.load(spec) {
             if let Some(transport) = cfg.servers.get(name) {
                 hits.push((spec, transport.clone(), cfg.disabled.contains(name)));
@@ -440,7 +488,7 @@ fn cmd_doctor(ctx: &Ctx, tool: Option<&str>, strict: bool, fix: bool, dry_run: b
             Ok(spec) => vec![spec],
             Err(e) => return fail(&e),
         },
-        None => registry::registry().iter().collect(),
+        None => ctx.specs(),
     };
 
     let mut loads: Vec<ToolLoad> = specs
@@ -475,7 +523,7 @@ fn cmd_doctor(ctx: &Ctx, tool: Option<&str>, strict: bool, fix: bool, dry_run: b
 
     let mut by_severity = [0_usize; 3];
     println!("{}", report::header("Health report"));
-    for spec in registry::registry() {
+    for spec in ctx.specs() {
         let tool_findings: Vec<&doctor::Finding> =
             findings.iter().filter(|f| f.tool == spec.id).collect();
         if tool_findings.is_empty() {
@@ -943,7 +991,7 @@ fn portable_entry(transport: &Transport) -> Value {
 fn cmd_export(ctx: &Ctx, out: Option<PathBuf>) -> ExitCode {
     let mut tools = serde_json::Map::new();
     let mut server_count = 0;
-    for spec in registry::registry() {
+    for spec in ctx.specs() {
         if let ConfigState::Loaded(cfg) = ctx.load(spec) {
             if cfg.servers.is_empty() {
                 continue;
@@ -1094,7 +1142,7 @@ fn cmd_backup(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
             Ok(spec) => vec![spec],
             Err(e) => return fail(&e),
         },
-        None => registry::registry().iter().collect(),
+        None => ctx.specs(),
     };
 
     let dir = backups_dir(&ctx.home);
