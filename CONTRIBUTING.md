@@ -81,4 +81,14 @@ One line per improvement cycle: date, what changed, why.
   shipped five ~0.8 MB binaries (linux amd64/arm64, macos amd64/arm64,
   windows), verified by downloading the linux-x86_64 archive and running
   `mcpmedic --version` and a live `list` against a real machine.
+- **2026-09-23 · cycle 5 — isotype v2, "the cursor cross".** Redesigned the
+  logo from craft principles (research: reduction/silhouette tests, one-idea
+  marks with double readings, optical correction, grid rhythm). The v1 mark
+  carved `>_` text into a plain cross — text inside a mark dies below 32 px
+  and a bare cross is category-generic. The v2 mark is one idea: a medic
+  cross built from five terminal cursor blocks with 10-unit seams, the
+  horizontal arm optically thinned 11.5%, responsive by construction (the
+  seams close below ~32 px and the mark heals into a solid cross). Added a
+  dedicated favicon tier. Both behaviors verified by rendering at 512/64/16
+  px and pixel-sampling: distinct blocks at 512, solid cross at 16.
 

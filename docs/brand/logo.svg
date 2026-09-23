@@ -1,7 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="mcpmedic logo">
-  <!-- mcpmedic isotype: medic cross with a terminal prompt carved in its center -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="mcpmedic logo: a medic cross built from five terminal cursor blocks">
+  <!--
+    mcpmedic isotype v2 — "the cursor cross".
+    One idea, two readings: a medical cross from a distance, five terminal
+    cursor blocks up close. Grid: 320-unit cross on a 512 canvas, 10-unit
+    seams. Optical correction: the horizontal arm is 11.5% thinner than the
+    vertical (92 vs 104) because horizontals read heavier. At favicon sizes
+    the seams close and the mark heals into a solid cross — by construction.
+  -->
   <rect width="512" height="512" rx="112" fill="#0D1117"/>
-  <rect x="208" y="96" width="96" height="320" rx="28" fill="#2EE6A8"/>
-  <rect x="96" y="208" width="320" height="96" rx="28" fill="#2EE6A8"/>
-  <text x="256" y="258" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="58" font-weight="700" fill="#0D1117" text-anchor="middle" dominant-baseline="central">>_</text>
+  <g fill="#2EE6A8">
+    <rect x="204" y="96" width="104" height="104" rx="14"/>
+    <rect x="96" y="210" width="98" height="92" rx="14"/>
+    <rect x="204" y="210" width="104" height="92" rx="14"/>
+    <rect x="318" y="210" width="98" height="92" rx="14"/>
+    <rect x="204" y="312" width="104" height="104" rx="14"/>
+  </g>
 </svg>

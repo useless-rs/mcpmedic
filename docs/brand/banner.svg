@@ -3,9 +3,14 @@
   <rect width="1280" height="360" rx="24" fill="#0D1117"/>
   <rect width="1280" height="360" rx="24" fill="none" stroke="#21262D" stroke-width="2"/>
 
-  <!-- isotype: medic cross -->
-  <rect x="218" y="68" width="22" height="76" rx="6" fill="#2EE6A8"/>
-  <rect x="191" y="95" width="76" height="22" rx="6" fill="#2EE6A8"/>
+  <!-- isotype: the cursor cross (same construction as logo.svg) -->
+  <g fill="#2EE6A8" transform="translate(240 106) scale(0.25) translate(-256 -256)">
+    <rect x="204" y="96" width="104" height="104" rx="14"/>
+    <rect x="96" y="210" width="98" height="92" rx="14"/>
+    <rect x="204" y="210" width="104" height="92" rx="14"/>
+    <rect x="318" y="210" width="98" height="92" rx="14"/>
+    <rect x="204" y="312" width="104" height="104" rx="14"/>
+  </g>
 
   <!-- wordmark -->
   <text x="266" y="107" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="64" font-weight="700" fill="#E6EDF3" dominant-baseline="central">mcpmedic</text>

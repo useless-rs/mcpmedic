@@ -231,10 +231,10 @@ and adding a new tool is ~15 lines.
 
 ## Brand
 
-mcpmedic's identity is **"a first-aid station in your terminal"**: a medic cross
-with a prompt carved in it, a heartbeat line, monospace type, dark surfaces,
-and exactly one accent color. Canonical assets live in
-[`docs/brand/`](docs/brand/) — use them as-is; don't redraw or recolor them.
+mcpmedic's identity is **"a first-aid station in your terminal"**: the cursor
+cross, a heartbeat line, monospace type, dark surfaces, and exactly one accent
+color. Canonical assets live in [`docs/brand/`](docs/brand/) — use them as-is;
+don't redraw or recolor them.
 
 | Token | Hex | Role |
 |---|---|---|
@@ -242,6 +242,20 @@ and exactly one accent color. Canonical assets live in
 | Paper | `#E6EDF3` | Wordmark and text on dark |
 | Mint | `#2EE6A8` | The single brand accent: the cross, the heartbeat line, verb chips |
 | Slate | `#8B949E` | Muted text, taglines |
+
+**Isotype — "the cursor cross."** One idea, two readings: from a distance it
+is a medical cross; up close it is built from five terminal cursor blocks —
+the terminal's atomic filled unit — joined by 10-unit seams. Construction:
+
+- 320-unit cross on a 512-unit canvas, five blocks on a shared grid.
+- Optical correction: the horizontal arm is 11.5% thinner than the vertical
+  (92 vs 104 units), because horizontals read heavier than verticals — the
+  same correction that makes an "H" crossbar thinner than its stems.
+- Responsive by construction: below ~32 px the seams close and the mark
+  heals into a solid cross — the favicon tier is the same construction, not
+  a redraw.
+- Silhouette rule: the mark must read as a solid cross in one color at 16 px
+  and as five cursor blocks at 512 px. Verified by pixel-rendering both tiers.
 
 Rules distilled from the broader CLI brand canon (bat, eza, NixOS, and
 friends):
@@ -251,10 +265,12 @@ friends):
   literals). Success/warning/critical/info in `doctor` output are *semantic*
   colors (green/amber/red/blue) and are never recolored to mint.
 - **Flat colors only** — no gradients, glows, shadows or 3D on the marks.
-- The isotype must survive as a plain silhouette at 16 px (favicon, tab bar).
+- No text inside the isotype — text dies below 32 px; the mark carries meaning
+  alone.
 - Dark backgrounds are the default for brand surfaces.
 
 Assets: [`logo.svg`](docs/brand/logo.svg) (512×512 isotype) ·
+[`favicon.svg`](docs/brand/favicon.svg) (tab-scale tier) ·
 [`banner.svg`](docs/brand/banner.svg) (1280×360 README hero) ·
 [`social-preview.svg`](docs/brand/social-preview.svg) (1280×640 — export to PNG
 and upload in repo *Settings → Social preview*).

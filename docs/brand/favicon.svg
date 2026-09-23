@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 512 512" role="img" aria-label="mcpmedic favicon">
+  <!-- Favicon tier: same cursor-cross construction, enlarged to 78% so the
+       mark fills the tab; the 10-unit seams close below 32px and the mark
+       reads as a solid cross — that collapse is the designed behavior. -->
+  <rect width="512" height="512" rx="128" fill="#0D1117"/>
+  <g fill="#2EE6A8" transform="translate(256 256) scale(1.24) translate(-256 -256)">
+    <rect x="204" y="96" width="104" height="104" rx="14"/>
+    <rect x="96" y="210" width="98" height="92" rx="14"/>
+    <rect x="204" y="210" width="104" height="92" rx="14"/>
+    <rect x="318" y="210" width="98" height="92" rx="14"/>
+    <rect x="204" y="312" width="104" height="104" rx="14"/>
+  </g>
+</svg>
