@@ -73,4 +73,12 @@ One line per improvement cycle: date, what changed, why.
   so superseded pushes cancel in-progress runs instead of burning runner
   minutes. Why: a green, warning-free CI page is part of the "trustworthy
   first-aid kit" pitch — warning noise erodes trust.
+- **2026-09-23 · cycle 4 — v0.1.0 released.** Two release-blocker fixes found
+  while exercising the never-run release pipeline: `action-gh-release` bumped
+  v2 → v3 (Node 20 is removed from Actions runners on 2026-09-23 — the same
+  day; v2 runs on Node 20), and the `aarch64-unknown-linux-gnu` leg gained
+  the missing cross-linker it always needed. Tagged `v0.1.0`; the workflow
+  shipped five ~0.8 MB binaries (linux amd64/arm64, macos amd64/arm64,
+  windows), verified by downloading the linux-x86_64 archive and running
+  `mcpmedic --version` and a live `list` against a real machine.
 
