@@ -71,8 +71,30 @@ fn first_difference(a: &Transport, b: &Transport) -> String {
                 format!("env differs ({} vs {} variables)", env.len(), env2.len())
             }
         }
-        (Transport::Remote { url, .. }, Transport::Remote { url: url2, .. }) => {
-            format!("`{url}` vs `{url2}`")
+        (
+            Transport::Remote { url, headers },
+            Transport::Remote {
+                url: url2,
+                headers: headers2,
+            },
+        ) => {
+            if url == url2 {
+                let mut changed: Vec<&str> = headers
+                    .keys()
+                    .chain(headers2.keys())
+                    .filter(|k| headers.get(*k) != headers2.get(*k))
+                    .map(String::as_str)
+                    .collect();
+                changed.sort_unstable();
+                changed.dedup();
+                if changed.is_empty() {
+                    "headers differ".to_string()
+                } else {
+                    format!("headers differ ({})", changed.join(", "))
+                }
+            } else {
+                format!("`{url}` vs `{url2}`")
+            }
         }
         _ => format!("transport kind ({} vs {})", a.kind(), b.kind()),
     }
@@ -110,5 +132,38 @@ mod tests {
         assert_eq!(d.different.len(), 1);
         assert_eq!(d.different[0].0, "drifted");
         assert!(d.different[0].1.contains("args differ"));
+    }
+
+    #[test]
+    fn diff_names_differing_headers() {
+        let mut a = Servers::new();
+        a.insert(
+            "docs".into(),
+            Transport::Remote {
+                url: "https://x/mcp".into(),
+                headers: [("Authorization".to_owned(), "Bearer t".to_owned())].into(),
+            },
+        );
+        let mut b = Servers::new();
+        b.insert(
+            "docs".into(),
+            Transport::Remote {
+                url: "https://x/mcp".into(),
+                headers: BTreeMap::new(),
+            },
+        );
+
+        let d = diff(&a, &b);
+        assert_eq!(d.different.len(), 1);
+        assert!(
+            d.different[0].1.contains("headers differ"),
+            "got: {}",
+            d.different[0].1
+        );
+        assert!(
+            d.different[0].1.contains("Authorization"),
+            "got: {}",
+            d.different[0].1
+        );
     }
 }

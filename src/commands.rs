@@ -11,7 +11,7 @@ use crate::diff;
 use crate::doctor::{self, Severity, ToolLoad};
 use crate::format::{self, Format};
 use crate::model::{Servers, Transport};
-use crate::registry::{self, EnvOverrides, ToolSpec};
+use crate::registry::{self, EnvOverrides, ToolId, ToolSpec};
 use crate::report;
 use crate::store::{self, ConfigState, LoadedConfig, RawDoc, backups_dir};
 use crate::sync;
@@ -177,13 +177,13 @@ fn load_mutable(ctx: &Ctx, spec: &'static ToolSpec) -> Result<(LoadedConfig, boo
 }
 
 fn write_entry(
-    spec_format: Format,
+    spec: &ToolSpec,
     raw: &mut RawDoc,
     name: &str,
     transport: &Transport,
 ) -> Result<(), String> {
     match raw {
-        RawDoc::Json(doc) => format::write_json_entry(spec_format, doc, name, transport),
+        RawDoc::Json(doc) => format::write_json_entry(spec.format, spec.id, doc, name, transport),
         RawDoc::Toml(doc) => format::write_toml_entry(doc, name, transport),
     }
 }
@@ -679,7 +679,7 @@ fn cmd_add(
         ));
     }
 
-    if let Err(e) = write_entry(spec.format, &mut cfg.raw, name, &transport) {
+    if let Err(e) = write_entry(spec, &mut cfg.raw, name, &transport) {
         return fail(&e);
     }
 
@@ -844,7 +844,7 @@ fn cmd_sync(
     }
 
     for (name, transport) in &plan.to_add {
-        if let Err(e) = write_entry(spec_to.format, &mut target.raw, name, transport) {
+        if let Err(e) = write_entry(spec_to, &mut target.raw, name, transport) {
             return fail(&e);
         }
     }
@@ -861,6 +861,12 @@ fn cmd_sync(
 // export / import / backup
 // ---------------------------------------------------------------------------
 
+/// The portable interchange dialect for export/import: Claude Code's remote
+/// shape (`type: "http"` + `url`), the most widely compatible spelling.
+fn portable_entry(transport: &Transport) -> Value {
+    format::build_json_entry(Format::McpServers, ToolId::ClaudeCode, transport)
+}
+
 fn cmd_export(ctx: &Ctx, out: Option<PathBuf>) -> ExitCode {
     let mut tools = serde_json::Map::new();
     let mut server_count = 0;
@@ -872,10 +878,7 @@ fn cmd_export(ctx: &Ctx, out: Option<PathBuf>) -> ExitCode {
             let mut map = serde_json::Map::new();
             for (name, transport) in &cfg.servers {
                 server_count += 1;
-                map.insert(
-                    name.clone(),
-                    format::build_json_entry(Format::McpServers, transport),
-                );
+                map.insert(name.clone(), portable_entry(transport));
             }
             tools.insert(spec.id.as_str().to_owned(), Value::Object(map));
         }
@@ -980,7 +983,7 @@ fn cmd_import(ctx: &Ctx, file: &Path, to: Option<&str>, dry_run: bool) -> ExitCo
                 println!("  = `{name}` already in {} — skipped", spec.display);
                 continue;
             }
-            if let Err(e) = write_entry(spec.format, &mut cfg.raw, &name, &transport) {
+            if let Err(e) = write_entry(spec, &mut cfg.raw, &name, &transport) {
                 println!("  {} `{name}`: {e}", report::glyph_crit());
                 continue;
             }

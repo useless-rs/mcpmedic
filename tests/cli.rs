@@ -610,6 +610,93 @@ fn doctor_fix_dry_run_touches_nothing() {
     let _ = std::fs::remove_dir_all(&home);
 }
 
+fn windsurf_config_rel() -> &'static str {
+    if cfg!(windows) {
+        "AppData/Roaming/Codeium/windsurf/mcp_config.json"
+    } else {
+        ".codeium/windsurf/mcp_config.json"
+    }
+}
+
+#[test]
+fn add_remote_uses_and_reads_back_each_tools_dialect() {
+    let home = temp_home("dialects");
+    write(&home, ".cursor/mcp.json", "{}");
+    write(&home, ".gemini/settings.json", "{}");
+    write(&home, windsurf_config_rel(), "{}");
+
+    for tool in ["cursor", "gemini-cli", "windsurf"] {
+        let out = run(
+            &home,
+            &[
+                "add",
+                "docs",
+                "--to",
+                tool,
+                "--url",
+                "https://example.com/mcp",
+            ],
+        );
+        assert!(out.status.success(), "{tool}: {}", stderr(&out));
+    }
+
+    let cursor: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(".cursor/mcp.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        cursor["mcpServers"]["docs"]["url"],
+        "https://example.com/mcp"
+    );
+    assert!(
+        cursor["mcpServers"]["docs"].get("type").is_none(),
+        "cursor infers the transport — no type field"
+    );
+
+    let gemini: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(".gemini/settings.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        gemini["mcpServers"]["docs"]["httpUrl"],
+        "https://example.com/mcp"
+    );
+    assert!(gemini["mcpServers"]["docs"].get("url").is_none());
+
+    let windsurf: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(windsurf_config_rel())).unwrap())
+            .unwrap();
+    assert_eq!(
+        windsurf["mcpServers"]["docs"]["serverUrl"],
+        "https://example.com/mcp"
+    );
+    assert!(windsurf["mcpServers"]["docs"].get("type").is_none());
+
+    for tool in ["cursor", "gemini-cli", "windsurf"] {
+        let out = run(&home, &["list", "--tool", tool]);
+        assert!(
+            stdout(&out).contains("https://example.com/mcp"),
+            "every dialect must read back as the same normalized server ({tool}): {}",
+            stdout(&out)
+        );
+    }
+
+    let out = run(&home, &["diff", "cursor", "gemini-cli"]);
+    assert!(
+        stdout(&out).contains("no drift"),
+        "spelling differences must not count as drift: {}",
+        stdout(&out)
+    );
+
+    let out = run(&home, &["doctor"]);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "doctor must stay quiet on entries mcpmedic itself wrote: {}",
+        stdout(&out)
+    );
+
+    let _ = std::fs::remove_dir_all(&home);
+}
+
 #[test]
 fn backup_command_copies_configs() {
     let home = sample_home("backup");

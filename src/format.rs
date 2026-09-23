@@ -94,6 +94,18 @@ fn json_entries(map: &Map<String, Value>) -> (Servers, Vec<String>) {
     (servers, problems)
 }
 
+/// Remote URL field names across dialects, in preference order. Most tools
+/// use `url`; Gemini CLI documents `httpUrl` for streamable HTTP and
+/// Windsurf documents `serverUrl`.
+const URL_FIELDS: [&str; 3] = ["url", "httpUrl", "serverUrl"];
+
+/// The remote endpoint of an entry, whichever field carries it.
+fn remote_url_of(obj: &Map<String, Value>) -> Option<String> {
+    URL_FIELDS
+        .iter()
+        .find_map(|key| obj.get(*key).and_then(Value::as_str).map(str::to_owned))
+}
+
 /// Parse one JSON server entry into a [`Transport`].
 pub(crate) fn parse_json_entry(entry: &Value) -> Result<Transport, String> {
     let Value::Object(obj) = entry else {
@@ -126,14 +138,14 @@ pub(crate) fn parse_json_entry(entry: &Value) -> Result<Transport, String> {
         return Err("`command` array is empty".into());
     }
 
-    // Remote server: a URL wins.
-    if let Some(Value::String(url)) = obj.get("url") {
+    // Remote server: a URL field wins.
+    if let Some(url) = remote_url_of(obj) {
         if let Some(t) = declared {
             if t == "stdio" || t == "local" {
-                return Err(format!("type `{t}` but a `url` is set"));
+                return Err(format!("type `{t}` but a remote URL field is set"));
             }
             if !remote_types.contains(&t) {
-                return Err(format!("unknown type `{t}` with `url` set"));
+                return Err(format!("unknown type `{t}` with a remote URL field set"));
             }
         }
         let headers = string_map(
@@ -141,10 +153,7 @@ pub(crate) fn parse_json_entry(entry: &Value) -> Result<Transport, String> {
                 .or_else(|| obj.get("httpHeaders"))
                 .or_else(|| obj.get("http_headers")),
         );
-        return Ok(Transport::Remote {
-            url: url.clone(),
-            headers,
-        });
+        return Ok(Transport::Remote { url, headers });
     }
 
     // Zed legacy layout: `command` is an object with a `path` key.
@@ -165,7 +174,7 @@ pub(crate) fn parse_json_entry(entry: &Value) -> Result<Transport, String> {
         if let Some(t) = declared {
             if remote_types.contains(&t) {
                 return Err(format!(
-                    "type `{t}` indicates a remote server but no `url` is set"
+                    "type `{t}` indicates a remote server but no remote URL (`url`/`httpUrl`/`serverUrl`) is set"
                 ));
             }
         }
@@ -181,11 +190,11 @@ pub(crate) fn parse_json_entry(entry: &Value) -> Result<Transport, String> {
     if let Some(t) = declared {
         if remote_types.contains(&t) {
             return Err(format!(
-                "type `{t}` indicates a remote server but no `url` is set"
+                "type `{t}` indicates a remote server but no remote URL (`url`/`httpUrl`/`serverUrl`) is set"
             ));
         }
     }
-    Err("entry has neither `command` nor `url`".into())
+    Err("entry has neither `command` nor a remote URL field (`url`/`httpUrl`/`serverUrl`)".into())
 }
 
 /// Extract a string map from a JSON object value, skipping non-string values.
@@ -214,7 +223,12 @@ fn string_array(v: Option<&Value>) -> Vec<String> {
 }
 
 /// Build the JSON entry a tool expects from a normalized [`Transport`].
-pub(crate) fn build_json_entry(format: Format, transport: &Transport) -> Value {
+///
+/// Remote entries are rendered in each tool's documented dialect: the Claude
+/// tools key on `type: "http"`, Roo Code on the literal `streamable-http`,
+/// Cline on `streamableHttp`, Gemini CLI on its `httpUrl` field, Windsurf on
+/// `serverUrl`, and Cursor/Zed on a plain `url` with the transport inferred.
+pub(crate) fn build_json_entry(format: Format, tool: ToolId, transport: &Transport) -> Value {
     let mut entry = Map::new();
     match transport {
         Transport::Stdio { command, args, env } => {
@@ -230,10 +244,32 @@ pub(crate) fn build_json_entry(format: Format, transport: &Transport) -> Value {
             }
         }
         Transport::Remote { url, headers } => {
-            if matches!(format, Format::McpServers | Format::Vscode) {
-                entry.insert("type".into(), json!("http"));
+            match (format, tool) {
+                (Format::McpServers, ToolId::RooCode) => {
+                    entry.insert("type".into(), json!("streamable-http"));
+                    entry.insert("url".into(), json!(url));
+                }
+                (Format::McpServers, ToolId::Cline) => {
+                    entry.insert("type".into(), json!("streamableHttp"));
+                    entry.insert("url".into(), json!(url));
+                }
+                (Format::McpServers, ToolId::GeminiCli) => {
+                    entry.insert("httpUrl".into(), json!(url));
+                }
+                (Format::McpServers, ToolId::Windsurf) => {
+                    entry.insert("serverUrl".into(), json!(url));
+                }
+                (Format::McpServers, ToolId::Cursor) => {
+                    entry.insert("url".into(), json!(url));
+                }
+                (Format::McpServers | Format::Vscode, _) => {
+                    entry.insert("type".into(), json!("http"));
+                    entry.insert("url".into(), json!(url));
+                }
+                _ => {
+                    entry.insert("url".into(), json!(url));
+                }
             }
-            entry.insert("url".into(), json!(url));
             if !headers.is_empty() {
                 entry.insert("headers".into(), json!(headers));
             }
@@ -246,6 +282,7 @@ pub(crate) fn build_json_entry(format: Format, transport: &Transport) -> Value {
 /// unrelated key.
 pub(crate) fn write_json_entry(
     format: Format,
+    tool: ToolId,
     doc: &mut Value,
     name: &str,
     transport: &Transport,
@@ -260,7 +297,7 @@ pub(crate) fn write_json_entry(
     let Some(Value::Object(servers)) = root.get_mut(key) else {
         return Err(format!("`{key}` is not a JSON object"));
     };
-    servers.insert(name.into(), build_json_entry(format, transport));
+    servers.insert(name.into(), build_json_entry(format, tool, transport));
     Ok(())
 }
 
@@ -306,7 +343,7 @@ fn remote_type_rules(tool: ToolId) -> Option<RemoteTypeRules> {
 /// A pure-remote entry: a URL, no `command` — the only shape where `type`
 /// fixes are provably safe. Hybrid command+url entries need human judgment.
 fn is_pure_remote(obj: &Map<String, Value>) -> bool {
-    obj.get("url").and_then(Value::as_str).is_some() && !obj.contains_key("command")
+    remote_url_of(obj).is_some() && !obj.contains_key("command")
 }
 
 /// Scan a raw JSON document for issues that only exist per dialect, e.g. VS
@@ -757,6 +794,7 @@ mod tests {
         let mut doc = json!({"mcpServers": {"old": {"command": "true"}}, "numStartups": 42});
         write_json_entry(
             Format::McpServers,
+            ToolId::ClaudeCode,
             &mut doc,
             "new",
             &stdio("npx", &["-y", "p"]),
@@ -768,8 +806,87 @@ mod tests {
         assert_eq!(doc["mcpServers"]["new"]["args"], json!(["-y", "p"]));
         // VS Code dialect gets a type field.
         let mut vscode_doc = json!({});
-        write_json_entry(Format::Vscode, &mut vscode_doc, "x", &stdio("npx", &[])).unwrap();
+        write_json_entry(
+            Format::Vscode,
+            ToolId::Vscode,
+            &mut vscode_doc,
+            "x",
+            &stdio("npx", &[]),
+        )
+        .unwrap();
         assert_eq!(vscode_doc["servers"]["x"]["type"], json!("stdio"));
+    }
+
+    #[test]
+    fn parses_gemini_httpurl_and_windsurf_serverurl() {
+        let gemini = json!({"httpUrl": "https://x/mcp", "headers": {"Authorization": "Bearer t"}});
+        let Transport::Remote { url, headers } = parse_json_entry(&gemini).unwrap() else {
+            panic!("expected remote");
+        };
+        assert_eq!(url, "https://x/mcp");
+        assert_eq!(
+            headers.get("Authorization").map(String::as_str),
+            Some("Bearer t")
+        );
+
+        let windsurf = json!({"serverUrl": "https://y/mcp"});
+        let Transport::Remote { url, .. } = parse_json_entry(&windsurf).unwrap() else {
+            panic!("expected remote");
+        };
+        assert_eq!(url, "https://y/mcp");
+    }
+
+    #[test]
+    fn remote_entries_are_written_in_each_tools_dialect() {
+        let remote = Transport::Remote {
+            url: "https://x/mcp".into(),
+            headers: [("Authorization".to_owned(), "Bearer t".to_owned())].into(),
+        };
+
+        let claude = build_json_entry(Format::McpServers, ToolId::ClaudeCode, &remote);
+        assert_eq!(claude["type"], json!("http"));
+        assert_eq!(claude["url"], json!("https://x/mcp"));
+        assert_eq!(claude["headers"]["Authorization"], json!("Bearer t"));
+
+        let cursor = build_json_entry(Format::McpServers, ToolId::Cursor, &remote);
+        assert!(cursor.get("type").is_none(), "cursor infers transport");
+        assert_eq!(cursor["url"], json!("https://x/mcp"));
+
+        let windsurf = build_json_entry(Format::McpServers, ToolId::Windsurf, &remote);
+        assert!(windsurf.get("url").is_none(), "windsurf uses serverUrl");
+        assert!(windsurf.get("type").is_none());
+        assert_eq!(windsurf["serverUrl"], json!("https://x/mcp"));
+
+        let gemini = build_json_entry(Format::McpServers, ToolId::GeminiCli, &remote);
+        assert!(gemini.get("url").is_none(), "gemini uses httpUrl");
+        assert!(gemini.get("type").is_none());
+        assert_eq!(gemini["httpUrl"], json!("https://x/mcp"));
+        assert_eq!(gemini["headers"]["Authorization"], json!("Bearer t"));
+
+        let roo = build_json_entry(Format::McpServers, ToolId::RooCode, &remote);
+        assert_eq!(roo["type"], json!("streamable-http"));
+
+        let cline = build_json_entry(Format::McpServers, ToolId::Cline, &remote);
+        assert_eq!(cline["type"], json!("streamableHttp"));
+
+        let zed = build_json_entry(Format::Zed, ToolId::Zed, &remote);
+        assert!(zed.get("type").is_none());
+        assert_eq!(zed["url"], json!("https://x/mcp"));
+
+        for (tool, entry) in [
+            (ToolId::ClaudeCode, claude),
+            (ToolId::Cursor, cursor),
+            (ToolId::Windsurf, windsurf),
+            (ToolId::GeminiCli, gemini),
+            (ToolId::RooCode, roo),
+            (ToolId::Cline, cline),
+        ] {
+            let doc = json!({"mcpServers": {"written": entry}});
+            assert!(
+                json_raw_issues(tool, Format::McpServers, &doc).is_empty(),
+                "doctor must not flag the dialect mcpmedic writes"
+            );
+        }
     }
 
     #[test]

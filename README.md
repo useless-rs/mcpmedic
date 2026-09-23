@@ -57,7 +57,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **56 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
+- ✅ **67 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
 
 ## Supported tools
 
@@ -78,6 +78,14 @@ doesn't own, always atomically, always with an automatic backup first.
 Claude Code's `CLAUDE_CONFIG_DIR` and Codex's `CODEX_HOME` environment
 overrides are respected. Point `HOME`/`USERPROFILE` at another machine's home
 directory to inspect it — handy for dotfile maintenance.
+
+**Remote-server dialects are normalized across every tool**: Claude Code and
+Claude Desktop key on `type: "http"`, Roo Code on the literal
+`streamable-http`, Cline on `streamableHttp`, Gemini CLI on its `httpUrl`
+field, Windsurf on `serverUrl`, and Cursor/Zed on a plain `url` with the
+transport inferred. mcpmedic reads all of them, writes the right one when you
+`add` or `sync`, and diffs the normalized form — so a server never counts as
+drift just because two tools spell its transport differently.
 
 ## Install
 
@@ -219,8 +227,8 @@ improvement cycle; log in [`CONTRIBUTING.md`](CONTRIBUTING.md#improvement-log).
 |---|---|---|---|---|---|
 | 1 | ~~Shell completions~~ (`mcpmedic completions bash\|zsh\|fish\|powershell`) | 4 | 2 | L | ✅ cycle 2 |
 | 2 | ~~`doctor --fix` safe auto-repairs~~ (VS Code `type`, Zed legacy, remote `type` spellings) | 4 | 3 | M | ✅ cycle 6 |
-| 3 | Per-tool remote-transport dialects end-to-end: read `httpUrl` (Gemini) / `serverUrl` (Windsurf), write each tool's exact remote shape | 4 | 3 | M | **next up** |
-| 4 | `enable` / `disable` servers without removal (Codex `enabled`, opencode `enabled: false`) | 3 | 3 | L | planned |
+| 3 | ~~Per-tool remote-transport dialects end-to-end~~ (read `httpUrl`/`serverUrl`, write each tool's exact remote shape) | 4 | 3 | M | ✅ cycle 7 |
+| 4 | `enable` / `disable` servers without removal (Codex `enabled`, opencode `enabled: false`) | 3 | 3 | L | **next up** |
 | 5 | Project-scoped configs (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`) | 4 | 4 | M | planned |
 | 6 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | planned |
 | 7 | More tools: Warp, Kiro, JetBrains, TRAE, Antigravity | 3 | 2 | L | planned |

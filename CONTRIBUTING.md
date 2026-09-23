@@ -104,4 +104,19 @@ One line per improvement cycle: date, what changed, why.
   Every repair is backed up before the atomic write; `--fix --dry-run`
   previews without touching files. The same dialect knowledge powers new
   doctor findings, so detection and repair can never disagree.
+- **2026-09-23 · cycle 7 — per-tool remote-transport dialects, end to end.**
+  The reader now accepts every remote URL field (`url`/`httpUrl`/`serverUrl`)
+  — Gemini CLI and Windsurf configs were previously invisible to mcpmedic,
+  surfacing as unparseable entries — and `add`/`sync` write each tool's exact
+  documented remote shape: Claude tools `type: "http"`, Roo Code the literal
+  `streamable-http`, Cline `streamableHttp`, Gemini `httpUrl`, Windsurf
+  `serverUrl`, Cursor/Zed a plain `url` with the transport inferred. Export
+  keeps one portable dialect (Claude's shape) for interchange. Why: official
+  docs for Gemini CLI and Windsurf both warn that an entry copied from
+  another client's example will not connect — dialect-correct writes are the
+  difference between "added" and "silently broken". An invariant test now
+  asserts doctor never flags a dialect mcpmedic itself wrote. The live
+  validation demo also exposed a `diff` bug (identical URLs printed as
+  "`url` vs `url`" when only headers differed); `diff` now names the
+  differing headers, with a regression test.
 
