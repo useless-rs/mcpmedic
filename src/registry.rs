@@ -20,6 +20,9 @@ pub(crate) enum ToolId {
     Cline,
     RooCode,
     Opencode,
+    Warp,
+    Kiro,
+    Trae,
 }
 
 impl ToolId {
@@ -37,6 +40,9 @@ impl ToolId {
             Self::Cline => "cline",
             Self::RooCode => "roo-code",
             Self::Opencode => "opencode",
+            Self::Warp => "warp",
+            Self::Kiro => "kiro",
+            Self::Trae => "trae",
         }
     }
 }
@@ -254,6 +260,44 @@ static REGISTRY: &[ToolSpec] = &[
             }
         },
     },
+    ToolSpec {
+        id: ToolId::Warp,
+        display: "Warp",
+        format: Format::McpServers,
+        writable: true,
+        disable: None,
+        project_path: Some(|project| project.join(".warp").join(".mcp.json")),
+        path: |home, _| home.join(".warp").join(".mcp.json"),
+    },
+    ToolSpec {
+        id: ToolId::Kiro,
+        display: "Kiro",
+        format: Format::McpServers,
+        writable: true,
+        disable: Some(DisableFlag {
+            key: "disabled",
+            off_when: true,
+        }),
+        project_path: Some(|project| project.join(".kiro").join("settings").join("mcp.json")),
+        path: |home, _| home.join(".kiro").join("settings").join("mcp.json"),
+    },
+    ToolSpec {
+        id: ToolId::Trae,
+        display: "TRAE",
+        format: Format::McpServers,
+        writable: true,
+        disable: None,
+        project_path: None,
+        path: |home, _| {
+            if cfg!(target_os = "macos") {
+                home.join("Library/Application Support/Trae/User/mcp.json")
+            } else if cfg!(windows) {
+                home.join("AppData/Roaming/Trae/User/mcp.json")
+            } else {
+                home.join(".config/Trae/User/mcp.json")
+            }
+        },
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -294,7 +338,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 11);
+        assert_eq!(registry().len(), 14);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }
@@ -318,6 +362,11 @@ mod tests {
             "disabled"
         );
         assert_eq!(by_id(ToolId::Zed).disable.as_ref().unwrap().key, "enabled");
+        assert_eq!(
+            by_id(ToolId::Kiro).disable.as_ref().unwrap().key,
+            "disabled"
+        );
+        assert!(by_id(ToolId::Kiro).disable.as_ref().unwrap().off_when);
         for id in [
             ToolId::Cursor,
             ToolId::ClaudeCode,
@@ -326,6 +375,8 @@ mod tests {
             ToolId::Vscode,
             ToolId::GeminiCli,
             ToolId::Opencode,
+            ToolId::Warp,
+            ToolId::Trae,
         ] {
             assert!(
                 by_id(id).disable.is_none(),
@@ -363,12 +414,21 @@ mod tests {
             project_of(ToolId::Opencode),
             PathBuf::from("/repo/opencode.json")
         );
+        assert_eq!(
+            project_of(ToolId::Warp),
+            PathBuf::from("/repo/.warp/.mcp.json")
+        );
+        assert_eq!(
+            project_of(ToolId::Kiro),
+            PathBuf::from("/repo/.kiro/settings/mcp.json")
+        );
         for id in [
             ToolId::ClaudeDesktop,
             ToolId::Windsurf,
             ToolId::Zed,
             ToolId::Cline,
             ToolId::RooCode,
+            ToolId::Trae,
         ] {
             assert!(
                 by_id(id).project_path.is_none(),

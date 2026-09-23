@@ -193,3 +193,12 @@ One line per improvement cycle: date, what changed, why.
   toolchain needed by users. Covers macOS (arm64 + x86_64) and Linux
   (arm64 + x86_64) with sha256-verified tarballs from the v0.2.0 release.
   Install: `brew install useless-rs/mcpmedic/mcpmedic`.
+- **2026-09-23 · cycle 15 — Warp, Kiro, TRAE added (14 tools).** Registry
+  grows from 11 to 14 tools, each backed by first-party doc evidence:
+  Warp (`~/.warp/.mcp.json`, project-scoped `{repo_root}/.warp/.mcp.json`),
+  Kiro (`~/.kiro/settings/mcp.json`, project-scoped, documented `disabled`
+  flag), TRAE (platform app-support dir → `User/mcp.json`). All three use
+  the standard `mcpServers` JSON format, so every existing command works
+  with them out of the box — scan, list, doctor, add, rm, sync, enable/
+  disable, export, import, audit, `--json`, `--project`. JetBrains and
+  Antigravity remain on the backlog. 1 new e2e test; 86 total.

@@ -75,7 +75,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **85 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
+- ✅ **85 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 14 tools
 
 ## Supported tools
 
@@ -92,6 +92,9 @@ doesn't own, always atomically, always with an automatic backup first.
 | Cline | VS Code globalStorage `cline_mcp_settings.json` | JSON | ✅ |
 | Roo Code | VS Code globalStorage `mcp_settings.json` | JSON | ✅ |
 | opencode | `~/.config/opencode/opencode.json[c]` → `mcp` (v1 + v2 layouts) | JSONC | 👁 read-only |
+| Warp | `~/.warp/.mcp.json` → `mcpServers` | JSON | ✅ |
+| Kiro | `~/.kiro/settings/mcp.json` → `mcpServers` | JSON | ✅ |
+| TRAE | platform app-support dir → `User/mcp.json` → `mcpServers` | JSON | ✅ |
 
 Claude Code's `CLAUDE_CONFIG_DIR` and Codex's `CODEX_HOME` environment
 overrides are respected. Point `HOME`/`USERPROFILE` at another machine's home
@@ -294,7 +297,7 @@ improvement cycle; log in [`CONTRIBUTING.md`](CONTRIBUTING.md#improvement-log).
 | 4 | ~~`enable` / `disable` servers without removal~~ (Codex/Zed `enabled`, Cline/Roo `disabled`) | 3 | 3 | L | ✅ cycle 8 |
 | 5 | ~~Project-scoped configs~~ (`--project <dir>`: `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json`, `.codex/config.toml`, `opencode.json`) | 4 | 4 | M | ✅ cycle 9 |
 | 6 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | **next up** |
-| 7 | More tools: Warp, Kiro, JetBrains, TRAE, Antigravity | 3 | 2 | L | planned |
+| 7 | ~~More tools~~ Warp, Kiro, TRAE added (JetBrains, Antigravity next) | 3 | 2 | L | ✅ cycle 15 (partial) |
 | 8 | Social preview PNG upload | 2 | 1 | L | ✅ cycle 10 (PNG ready in `docs/brand/`; upload in repo settings) |
 | 9 | ~~Absolute image URLs before `cargo publish`~~ | 2 | 1 | L | ✅ cycle 13 |
 | 10 | MCP reachability probe in `doctor` (spawn / HTTP HEAD with strict timeouts) | 4 | 4 | H | someday |

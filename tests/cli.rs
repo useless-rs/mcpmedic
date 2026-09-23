@@ -952,6 +952,44 @@ fn json_mode_emits_parseable_schema_versioned_output() {
 }
 
 #[test]
+fn warp_kiro_and_trae_are_discoverable() {
+    let home = temp_home("new-tools");
+    write(
+        &home,
+        ".warp/.mcp.json",
+        r#"{"mcpServers": {"warp-srv": {"command": "sh"}}}"#,
+    );
+    write(
+        &home,
+        ".kiro/settings/mcp.json",
+        r#"{"mcpServers": {"kiro-srv": {"command": "sh", "disabled": true}}}"#,
+    );
+
+    let out = run(&home, &["list", "--tool", "warp"]);
+    assert!(stdout(&out).contains("warp-srv"), "{}", stdout(&out));
+
+    let out = run(&home, &["list", "--tool", "kiro"]);
+    assert!(stdout(&out).contains("kiro-srv"), "{}", stdout(&out));
+    assert!(stdout(&out).contains("(off)"), "{}", stdout(&out));
+
+    let out = run(&home, &["scan", "--json"]);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout(&out)).expect("scan --json must emit valid JSON");
+    let ids: Vec<&str> = parsed["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|t| t["id"].as_str())
+        .collect();
+    assert!(ids.contains(&"warp"), "warp must appear: {ids:?}");
+    assert!(ids.contains(&"kiro"), "kiro must appear: {ids:?}");
+    assert!(ids.contains(&"trae"), "trae must appear: {ids:?}");
+    assert_eq!(ids.len(), 14, "14 tools expected: {ids:?}");
+
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn backup_command_copies_configs() {
     let home = sample_home("backup");
     let out = run(&home, &["backup"]);
