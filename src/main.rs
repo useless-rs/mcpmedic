@@ -5,6 +5,7 @@
 //! all, normalizes them into one model, and lets you inspect, health-check,
 //! diff and surgically edit them — with atomic writes and automatic backups.
 
+mod audit;
 mod cli;
 mod commands;
 mod diff;

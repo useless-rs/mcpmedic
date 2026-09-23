@@ -880,6 +880,36 @@ fn project_mode_reads_and_writes_project_configs() {
 }
 
 #[test]
+fn audit_flags_hardcoded_secrets_and_passes_clean_configs() {
+    let home = temp_home("audit-dirty");
+    write(
+        &home,
+        ".cursor/mcp.json",
+        r#"{"mcpServers": {"leaky": {"command": "sh", "env": {"GITHUB_PAT": "ghp_0123456789abcdefghijklmnopqrstuvwxyzAB", "SAFE_KEY": "${FROM_SHELL}"}}}}"#,
+    );
+    let out = run(&home, &["audit"]);
+    assert_eq!(out.status.code(), Some(1), "{}", stdout(&out));
+    let text = stdout(&out);
+    assert!(text.contains("GitHub token"), "got: {text}");
+    assert!(text.contains("leaky"), "got: {text}");
+    assert!(
+        !text.contains("FROM_SHELL"),
+        "templated values must not be flagged: {text}"
+    );
+
+    let clean = temp_home("audit-clean");
+    write(
+        &clean,
+        ".cursor/mcp.json",
+        r#"{"mcpServers": {"ok": {"command": "sh", "env": {"KEY": "${MY_KEY}"}}}}"#,
+    );
+    let out = run(&clean, &["audit"]);
+    assert_eq!(out.status.code(), Some(0), "{}", stdout(&out));
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&clean);
+}
+
+#[test]
 fn backup_command_copies_configs() {
     let home = sample_home("backup");
     let out = run(&home, &["backup"]);

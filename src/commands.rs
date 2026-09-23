@@ -7,6 +7,7 @@ use std::process::ExitCode;
 use clap::CommandFactory;
 use serde_json::{Value, json};
 
+use crate::audit;
 use crate::cli::Cmd;
 use crate::diff;
 use crate::doctor::{self, Severity, ToolLoad};
@@ -135,6 +136,7 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
         Cmd::Export { out } => cmd_export(&ctx, out),
         Cmd::Import { file, to, dry_run } => cmd_import(&ctx, &file, to.as_deref(), dry_run),
         Cmd::Backup { tool } => cmd_backup(&ctx, tool.as_deref()),
+        Cmd::Audit { tool } => cmd_audit(&ctx, tool.as_deref()),
         Cmd::Completions { shell } => cmd_completions(shell),
     }
 }
@@ -1134,6 +1136,58 @@ fn parse_export_map(map: &serde_json::Map<String, Value>) -> Vec<(String, Transp
         }
     }
     out
+}
+
+fn cmd_audit(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
+    let specs: Vec<&'static ToolSpec> = match tool {
+        Some(name) => match resolve(name) {
+            Ok(spec) => vec![spec],
+            Err(e) => return fail(&e),
+        },
+        None => ctx.specs(),
+    };
+
+    let mut secrets = 0;
+    let mut perms_warnings = 0;
+    println!("{}", report::header("Security audit"));
+    for spec in specs {
+        let ConfigState::Loaded(cfg) = ctx.load(spec) else {
+            continue;
+        };
+        let path = ctx.path(spec);
+        if let Some(warning) = audit::permissions_warning(&path) {
+            perms_warnings += 1;
+            println!(
+                "  {} {} config is {warning}",
+                report::glyph_warn(),
+                spec.display
+            );
+        }
+        for (name, transport) in &cfg.servers {
+            for finding in audit::scan_transport(name, transport) {
+                secrets += 1;
+                println!(
+                    "  {} {} — server `{}` {}: hardcoded {}",
+                    report::glyph_crit(),
+                    spec.display,
+                    finding.server,
+                    finding.location,
+                    finding.label
+                );
+            }
+        }
+    }
+
+    println!();
+    println!("  {secrets} hardcoded secret(s) · {perms_warnings} permission warning(s)");
+    if secrets > 0 {
+        println!(
+            "  rotate the exposed credentials; prefer env references (\"${{VAR}}\") over literals"
+        );
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 fn cmd_backup(ctx: &Ctx, tool: Option<&str>) -> ExitCode {

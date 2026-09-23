@@ -58,6 +58,12 @@ doesn't own, always atomically, always with an automatic backup first.
   `.vscode/mcp.json`, Gemini CLI `.gemini/settings.json`, Codex
   `.codex/config.toml`, opencode `opencode.json` — the same surgical edits,
   scoped to the project
+- 🔐 **`audit`** — security check for your MCP configs: hardcoded credentials
+  in env and header values (known token formats from the gitleaks/trufflehog
+  rule sets: AWS, GitHub, OpenAI, Stripe, GCP, Slack, JWTs — plus a Shannon
+  entropy heuristic for unprefixed ones, with placeholders and `${VAR}`
+  references correctly skipped), and a Unix permission check that warns when
+  a config full of credentials is readable by others
 - 🪡 **Surgical edits** — `add`/`rm` write the *exact* dialect each tool
   expects, preserve every unrelated key, use atomic `write+rename`, and back up
   the previous file to `~/.mcpmedic/backups/` first
@@ -66,7 +72,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **77 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
+- ✅ **84 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows)
 
 ## Supported tools
 
@@ -198,6 +204,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `sync --from <a> --to <b>` | Additive merge; `--force`, `--names`, `--dry-run` supported |
 | `export [--out <file>]` | Dump everything to portable JSON |
 | `import <file> [--to <t>]` | Restore an export (per-tool sections or flat `servers` map) |
+| `audit [--tool <t>]` | Security audit: hardcoded secrets in env/header values (known token formats + entropy heuristic), config file permissions |
 | `completions <shell>` | Print completions for bash, zsh, fish, elvish or powershell |
 | `backup [--tool <t>]` | Manual backup (also automatic before every mutation) |
 
@@ -228,6 +235,13 @@ config rot.
 5. **Refusal, not heroics** — a config with a parse error is reported, never
    edited.
 6. **Additive sync** — `sync` never deletes servers from the target.
+7. **Backup hygiene** — `~/.mcpmedic` is 0700 and every backup file 0600,
+   because backups contain the same credentials as the configs they mirror.
+   New config files `mcpmedic` creates get mode 600 on Unix; existing files
+   keep their current mode.
+8. **Security audit** — `mcpmedic audit` scans env and header values for
+   hardcoded credentials and warns when a config is readable by group/others;
+   it exits 1 when a secret is found, so it gates CI.
 
 ## Why not a GUI or a gateway?
 

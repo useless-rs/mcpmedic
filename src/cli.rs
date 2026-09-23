@@ -185,6 +185,14 @@ pub(crate) enum Cmd {
         dry_run: bool,
     },
 
+    /// Security audit: hardcoded secrets in env/header values and config
+    /// file permissions.
+    Audit {
+        /// Only audit this tool (id or display name).
+        #[arg(long)]
+        tool: Option<String>,
+    },
+
     /// Generate shell completions to stdout (bash, zsh, fish, elvish, powershell).
     Completions {
         /// Shell to generate completions for.

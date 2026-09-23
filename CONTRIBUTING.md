@@ -147,4 +147,25 @@ One line per improvement cycle: date, what changed, why.
   nothing pollutes the repo. The single path funnel (`ctx.path`/`ctx.load`)
   made this a contained change — `store::load` now takes the path
   explicitly. 2 new tests, 77 total.
+- **2026-09-23 · cycle 10 — isotype v3 "the prompt cross", PNG assets.**
+  The v2 "five cursor blocks" mark read as fragmented — the seams looked
+  like rendering errors — and every banner used SVG `<text>`, which
+  GitHub's renderer substitutes fonts under (the classic SVG-text trap).
+  v3: one solid, symmetric cross — a single bold silhouette — with the
+  terminal `>` chevron carved by absence at its heart (negative space as
+  the verb; it fills to a plain cross below ~24 px). Text-bearing assets
+  now ship as PNG with iA Writer Duospace Bold baked in; SVGs remain as
+  sources. Verified by pixel-rendering the 16/32/512 px tiers.
+- **2026-09-23 · cycle 11 — `mcpmedic audit` + backup hygiene.** A from-scratch
+  secret scanner (zero new dependencies, per the independence mandate):
+  known-token prefix signatures borrowed from the gitleaks/trufflehog rule
+  sets (AWS `AKIA`, GitHub `ghp_`/`github_pat_`, OpenAI/Anthropic `sk-`,
+  Stripe `sk_live_`, GCP `AIza`, Slack `xox`, JWT `eyJ`, private keys),
+  a Shannon-entropy heuristic for unprefixed credential-shaped env values,
+  and a placeholder filter that correctly skips `${VAR}` references and
+  documentation stubs. `audit` also warns when a config file is
+  group/world-readable on Unix. Backups are now hardened: `~/.mcpmedic`
+  is 0700, backup files 0600, and newly created config files get mode 600
+  (existing files keep their current mode — we don't silently change what
+  the tool's owner set). 7 new unit tests + 1 e2e; 84 total.
 

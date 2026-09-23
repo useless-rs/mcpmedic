@@ -146,13 +146,20 @@ pub(crate) fn persist(
     backup_stem: &str,
     home: &Path,
 ) -> std::io::Result<Option<PathBuf>> {
+    let original_perms = if path.exists() {
+        fs::metadata(path).ok().map(|m| m.permissions())
+    } else {
+        None
+    };
     let backup = if path.exists() {
         let dir = backups_dir(home);
         fs::create_dir_all(&dir)?;
+        restrict_dir_unix(&dir);
         let millis = epoch_millis();
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("json");
         let target = dir.join(format!("{backup_stem}-{millis}.{ext}"));
         fs::copy(path, &target)?;
+        restrict_file_unix(&target);
         Some(target)
     } else {
         None
@@ -160,9 +167,38 @@ pub(crate) fn persist(
 
     let tmp = path.with_extension(format!("mcpmedic-{}.tmp", epoch_millis()));
     fs::write(&tmp, contents)?;
+    apply_config_perms_unix(&tmp, original_perms);
     fs::rename(&tmp, path)?;
     Ok(backup)
 }
+
+#[cfg(unix)]
+fn restrict_dir_unix(dir: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    let _ = fs::set_permissions(dir, fs::Permissions::from_mode(0o700));
+}
+
+#[cfg(not(unix))]
+fn restrict_dir_unix(_dir: &Path) {}
+
+#[cfg(unix)]
+fn restrict_file_unix(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o600));
+}
+
+#[cfg(not(unix))]
+fn restrict_file_unix(_path: &Path) {}
+
+#[cfg(unix)]
+fn apply_config_perms_unix(path: &Path, original: Option<fs::Permissions>) {
+    use std::os::unix::fs::PermissionsExt;
+    let mode = original.map_or(0o600, |p| p.mode());
+    let _ = fs::set_permissions(path, fs::Permissions::from_mode(mode));
+}
+
+#[cfg(not(unix))]
+fn apply_config_perms_unix(_path: &Path, _original: Option<fs::Permissions>) {}
 
 fn epoch_millis() -> u128 {
     SystemTime::now()
