@@ -179,3 +179,17 @@ One line per improvement cycle: date, what changed, why.
   ordering). One new e2e test validating all five commands produce
   parseable, schema-versioned JSON; 85 total.
 
+- **2026-09-23 · cycle 13 — crates.io publish prep.** README hero banner
+  switched to an absolute GitHub raw URL (crates.io doesn't resolve relative
+  image paths), `homepage` added to Cargo.toml, install section now leads
+  with `cargo install mcpmedic`. `cargo package` validates cleanly —
+  139 KB .crate, all metadata fields verified (description, license,
+  repository, readme, keywords all under 20 chars, valid category slugs,
+  rust-version). The crate is ready to publish; the owner runs
+  `cargo login <TOKEN>` + `cargo publish`.
+- **2026-09-23 · cycle 14 — Homebrew tap.** Created
+  [useless-rs/homebrew-mcpmedic](https://github.com/useless-rs/homebrew-mcpmedic)
+  with a formula that downloads the prebuilt release binary — zero Rust
+  toolchain needed by users. Covers macOS (arm64 + x86_64) and Linux
+  (arm64 + x86_64) with sha256-verified tarballs from the v0.2.0 release.
+  Install: `brew install useless-rs/mcpmedic/mcpmedic`.

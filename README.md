@@ -113,6 +113,12 @@ drift just because two tools spell its transport differently.
 cargo install mcpmedic
 ```
 
+**From Homebrew (macOS / Linux — prebuilt binary, no Rust toolchain needed):**
+
+```sh
+brew install useless-rs/mcpmedic/mcpmedic
+```
+
 **From source:**
 
 ```sh
@@ -129,6 +135,13 @@ cargo install --path .
 
 Prebuilt binaries for Linux, macOS and Windows are attached to every
 [release](https://github.com/useless-rs/mcpmedic/releases).
+
+Homebrew users on macOS or Linux can install the prebuilt binary directly
+(no Rust toolchain required):
+
+```sh
+brew install useless-rs/mcpmedic/mcpmedic
+```
 
 ## Quickstart
 
@@ -282,8 +295,8 @@ improvement cycle; log in [`CONTRIBUTING.md`](CONTRIBUTING.md#improvement-log).
 | 5 | ~~Project-scoped configs~~ (`--project <dir>`: `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json`, `.codex/config.toml`, `opencode.json`) | 4 | 4 | M | ✅ cycle 9 |
 | 6 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | **next up** |
 | 7 | More tools: Warp, Kiro, JetBrains, TRAE, Antigravity | 3 | 2 | L | planned |
-| 8 | Social preview PNG upload (SVG ready in `docs/brand/`) | 2 | 1 | L | needs repo owner |
-| 9 | Absolute image URLs before `cargo publish` (crates.io can't render relative SVGs) | 2 | 1 | L | pre-publish step |
+| 8 | Social preview PNG upload | 2 | 1 | L | ✅ cycle 10 (PNG ready in `docs/brand/`; upload in repo settings) |
+| 9 | ~~Absolute image URLs before `cargo publish`~~ | 2 | 1 | L | ✅ cycle 13 |
 | 10 | MCP reachability probe in `doctor` (spawn / HTTP HEAD with strict timeouts) | 4 | 4 | H | someday |
 
 Explicit non-goal: telemetry, ever. A config doctor that phones home would be
