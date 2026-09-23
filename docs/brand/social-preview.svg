@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-label="mcpmedic — first aid for MCP configs across every AI tool you use">
+  <!-- mcpmedic social preview (1280x640): upload as PNG in GitHub repo settings -->
+  <rect width="1280" height="640" fill="#0D1117"/>
+  <rect x="8" y="8" width="1264" height="624" rx="32" fill="none" stroke="#21262D" stroke-width="2"/>
+
+  <!-- isotype -->
+  <g transform="translate(548,120)">
+    <rect x="46" y="0" width="44" height="136" rx="12" fill="#2EE6A8"/>
+    <rect x="0" y="46" width="136" height="44" rx="12" fill="#2EE6A8"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="640" y="330" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="96" font-weight="700" fill="#E6EDF3" text-anchor="middle" dominant-baseline="central">mcpmedic</text>
+
+  <!-- tagline -->
+  <text x="640" y="408" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="34" fill="#2EE6A8" text-anchor="middle" dominant-baseline="central">First aid for MCP configs.</text>
+
+  <!-- ECG heartbeat -->
+  <polyline points="80,504 512,504 556,504 578,436 604,552 630,474 652,504 1200,504" fill="none" stroke="#2EE6A8" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- supported tools -->
+  <text x="640" y="580" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="24" fill="#8B949E" text-anchor="middle" dominant-baseline="central">claude-code · cursor · windsurf · vscode · zed · gemini · codex · cline · roo · opencode</text>
+</svg>

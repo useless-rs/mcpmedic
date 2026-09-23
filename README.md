@@ -1,14 +1,15 @@
 <div align="center">
 
-# 🚑 mcpmedic
-
-**First aid for MCP configs — one binary that reads, health-checks, diffs and syncs
-MCP servers across every AI tool you use.**
+<img src="docs/brand/banner.svg" width="880" alt="mcpmedic — first aid for MCP configs: scan, doctor, diff and sync MCP servers across every AI tool you use">
 
 [![CI](https://github.com/useless-rs/mcpmedic/actions/workflows/ci.yml/badge.svg)](https://github.com/useless-rs/mcpmedic/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/mcpmedic.svg)](https://crates.io/crates/mcpmedic)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Made with Rust](https://img.shields.io/badge/made%20with-Rust-orange.svg)](https://www.rust-lang.org)
+
+**One binary that reads, health-checks, diffs and syncs MCP servers across
+every AI tool you use** — Claude Code, Cursor, Windsurf, VS Code, Zed, Codex,
+Gemini CLI, Cline, Roo Code, Claude Desktop and opencode.
 
 </div>
 
@@ -196,17 +197,58 @@ any OS, inside CI, over SSH, on a teammate's machine — no runtime, no daemon
 between you and your tools, no config stored anywhere but the configs
 themselves.
 
-## Roadmap
+## Roadmap & backlog
 
-- [ ] `doctor --fix` for safe auto-repairs (add missing `type`, Zed legacy migration)
-- [ ] opencode write support once the v2 layout stabilizes
-- [ ] Project-scoped configs (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`)
-- [ ] `enable` / `disable` without removal
-- [ ] Warp, Kiro, JetBrains, TRAE, Antigravity
-- [ ] Shell completions and man page
+Scored by impact (I 1-5), effort (E 1-5), risk (L/M/H). One item per
+improvement cycle; log in [`CONTRIBUTING.md`](CONTRIBUTING.md#improvement-log).
+
+| # | Item | I | E | Risk | Status |
+|---|---|---|---|---|---|
+| 1 | Shell completions (`mcpmedic completions bash\|zsh\|fish\|powershell`) | 4 | 2 | L | **next up** |
+| 2 | `doctor --fix` for safe auto-repairs (VS Code missing `type`, Zed legacy migration) | 4 | 3 | M | planned |
+| 3 | `enable` / `disable` servers without removal (Codex `enabled`, opencode `enabled: false`) | 3 | 3 | L | planned |
+| 4 | Project-scoped configs (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`) | 4 | 4 | M | planned |
+| 5 | `--json` machine output for `scan` / `list` / `doctor` | 3 | 3 | L | planned |
+| 6 | More tools: Warp, Kiro, JetBrains, TRAE, Antigravity | 3 | 2 | L | planned |
+| 7 | Social preview PNG upload (SVG ready in `docs/brand/`) | 2 | 1 | L | needs repo owner |
+| 8 | Absolute image URLs before `cargo publish` (crates.io can't render relative SVGs) | 2 | 1 | L | pre-publish step |
+| 9 | MCP reachability probe in `doctor` (spawn / HTTP HEAD with strict timeouts) | 4 | 4 | H | someday |
+
+Explicit non-goal: telemetry, ever. A config doctor that phones home would be
+a bad joke.
 
 Contributions welcome — the [tool registry](src/registry.rs) is a single file
 and adding a new tool is ~15 lines.
+
+## Brand
+
+mcpmedic's identity is **"a first-aid station in your terminal"**: a medic cross
+with a prompt carved in it, a heartbeat line, monospace type, dark surfaces,
+and exactly one accent color. Canonical assets live in
+[`docs/brand/`](docs/brand/) — use them as-is; don't redraw or recolor them.
+
+| Token | Hex | Role |
+|---|---|---|
+| Ink | `#0D1117` | Dark surfaces (logo/terminal background) |
+| Paper | `#E6EDF3` | Wordmark and text on dark |
+| Mint | `#2EE6A8` | The single brand accent: the cross, the heartbeat line, verb chips |
+| Slate | `#8B949E` | Muted text, taglines |
+
+Rules distilled from the broader CLI brand canon (bat, eza, NixOS, and
+friends):
+
+- **Wordmark** is `mcpmedic` — monospace, lowercase, always matches the command.
+- **Mint is the spark** — it marks brand moments only (logo, scan header, help
+  literals). Success/warning/critical/info in `doctor` output are *semantic*
+  colors (green/amber/red/blue) and are never recolored to mint.
+- **Flat colors only** — no gradients, glows, shadows or 3D on the marks.
+- The isotype must survive as a plain silhouette at 16 px (favicon, tab bar).
+- Dark backgrounds are the default for brand surfaces.
+
+Assets: [`logo.svg`](docs/brand/logo.svg) (512×512 isotype) ·
+[`banner.svg`](docs/brand/banner.svg) (1280×360 README hero) ·
+[`social-preview.svg`](docs/brand/social-preview.svg) (1280×640 — export to PNG
+and upload in repo *Settings → Social preview*).
 
 ## License
 

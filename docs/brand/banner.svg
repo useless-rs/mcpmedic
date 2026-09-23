@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="mcpmedic — first aid for MCP configs">
+  <!-- mcpmedic banner: wordmark lockup + ECG heartbeat signature line -->
+  <rect width="1280" height="360" rx="24" fill="#0D1117"/>
+  <rect width="1280" height="360" rx="24" fill="none" stroke="#21262D" stroke-width="2"/>
+
+  <!-- isotype: medic cross -->
+  <rect x="218" y="68" width="22" height="76" rx="6" fill="#2EE6A8"/>
+  <rect x="191" y="95" width="76" height="22" rx="6" fill="#2EE6A8"/>
+
+  <!-- wordmark -->
+  <text x="266" y="107" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="64" font-weight="700" fill="#E6EDF3" dominant-baseline="central">mcpmedic</text>
+
+  <!-- tagline -->
+  <text x="256" y="168" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="26" fill="#8B949E" dominant-baseline="central">First aid for MCP configs — scan, doctor, diff and sync</text>
+
+  <!-- ECG heartbeat -->
+  <polyline points="0,268 512,268 556,268 578,196 604,314 630,238 652,268 1280,268" fill="none" stroke="#2EE6A8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- verbs as chips -->
+  <text x="256" y="322" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="24" fill="#2EE6A8" dominant-baseline="central">scan · doctor · diff · sync</text>
+</svg>

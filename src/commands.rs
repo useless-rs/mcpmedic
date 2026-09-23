@@ -213,7 +213,7 @@ fn parse_kv_pairs(items: &[String], flag: &str) -> Result<Vec<(String, String)>,
 
 fn cmd_scan() -> ExitCode {
     let ctx = Ctx::new();
-    println!("{}", report::header("mcpmedic — first aid for MCP configs"));
+    println!("{}", report::brand_header());
     println!();
 
     let mut configured = 0;

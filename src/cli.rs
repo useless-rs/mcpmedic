@@ -2,14 +2,28 @@
 
 use std::path::PathBuf;
 
+use clap::builder::styling::{AnsiColor, Effects, Styles};
 use clap::{Parser, Subcommand};
+
+// mcpmedic help styling: green family for structure (headers/usage/literals),
+// mirroring the brand's medical-green identity. anstream downgrades and
+// disables these automatically for NO_COLOR and non-TTY output.
+const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .usage(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .literal(AnsiColor::BrightGreen.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::BrightBlack.on_default())
+    .error(AnsiColor::Red.on_default().effects(Effects::BOLD))
+    .valid(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .invalid(AnsiColor::Yellow.on_default().effects(Effects::BOLD));
 
 #[derive(Debug, Parser)]
 #[command(
     name = "mcpmedic",
     version,
     about = "🚑 First aid for MCP configs: scan, doctor, diff and sync MCP servers across every AI tool you use.",
-    propagate_version = true
+    propagate_version = true,
+    styles = STYLES
 )]
 pub(crate) struct Cli {
     #[command(subcommand)]

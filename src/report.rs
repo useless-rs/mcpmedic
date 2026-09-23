@@ -78,6 +78,14 @@ pub(crate) fn header(text: &str) -> String {
     text.bold().to_string()
 }
 
+/// The branded scan banner: mint wordmark + tagline.
+pub(crate) fn brand_header() -> String {
+    format!(
+        "{} — first aid for MCP configs",
+        "mcpmedic".bright_green().bold()
+    )
+}
+
 /// Error line for stderr.
 pub(crate) fn error_line(text: &str) -> String {
     format!("{} {text}", glyph_crit())
