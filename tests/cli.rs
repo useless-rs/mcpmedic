@@ -491,12 +491,20 @@ fn opencode_jsonc_is_read_but_never_edited() {
     let _ = std::fs::remove_dir_all(&home);
 }
 
+fn zed_settings_rel() -> &'static str {
+    if cfg!(windows) {
+        "AppData/Roaming/Zed/settings.json"
+    } else {
+        ".config/zed/settings.json"
+    }
+}
+
 #[test]
 fn zed_context_servers_are_edited_without_touching_other_settings() {
     let home = temp_home("zed");
     write(
         &home,
-        ".config/zed/settings.json",
+        zed_settings_rel(),
         r#"{"theme": "One Dark", "context_servers": {"ctx7": {"command": "npx", "args": ["-y", "@upstash/context7-mcp"]}}}"#,
     );
     let out = run(
@@ -511,10 +519,9 @@ fn zed_context_servers_are_edited_without_touching_other_settings() {
         ],
     );
     assert!(out.status.success(), "stderr: {}", stderr(&out));
-    let config: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(home.join(".config/zed/settings.json")).unwrap(),
-    )
-    .unwrap();
+    let config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(zed_settings_rel())).unwrap())
+            .unwrap();
     assert_eq!(config["theme"], "One Dark");
     assert_eq!(
         config["context_servers"]["extra"]["url"],
