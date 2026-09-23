@@ -1,26 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="mcpmedic — first aid for MCP configs">
-  <!-- mcpmedic banner: wordmark lockup + ECG heartbeat signature line -->
+  <!-- Rendered to banner.png with fonts baked in; SVG kept as source only. -->
   <rect width="1280" height="360" rx="24" fill="#0D1117"/>
-  <rect width="1280" height="360" rx="24" fill="none" stroke="#21262D" stroke-width="2"/>
+  <rect x="1" y="1" width="1278" height="358" rx="23" fill="none" stroke="#21262D" stroke-width="2"/>
 
-  <!-- isotype: the cursor cross (same construction as logo.svg) -->
-  <g fill="#2EE6A8" transform="translate(240 106) scale(0.25) translate(-256 -256)">
-    <rect x="204" y="96" width="104" height="104" rx="14"/>
-    <rect x="96" y="210" width="98" height="92" rx="14"/>
-    <rect x="204" y="210" width="104" height="92" rx="14"/>
-    <rect x="318" y="210" width="98" height="92" rx="14"/>
-    <rect x="204" y="312" width="104" height="104" rx="14"/>
+  <g transform="translate(64 64) scale(0.3)">
+    <rect x="206" y="96" width="100" height="320" rx="24" fill="#2EE6A8"/>
+    <rect x="96" y="206" width="320" height="100" rx="24" fill="#2EE6A8"/>
+    <path fill="#0D1117" d="M222 208 L280 256 L222 304 L222 280 L256 256 L222 232 Z"/>
   </g>
 
-  <!-- wordmark -->
-  <text x="266" y="107" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="64" font-weight="700" fill="#E6EDF3" dominant-baseline="central">mcpmedic</text>
+  <text x="220" y="162" font-family="iA Writer Duospace, Menlo, monospace" font-size="64" font-weight="700" fill="#E6EDF3">mcpmedic</text>
+  <text x="222" y="212" font-family="iA Writer Duospace, Menlo, monospace" font-size="26" fill="#8B949E">First aid for MCP configs — scan, doctor, diff and sync</text>
 
-  <!-- tagline -->
-  <text x="256" y="168" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="26" fill="#8B949E" dominant-baseline="central">First aid for MCP configs — scan, doctor, diff and sync</text>
-
-  <!-- ECG heartbeat -->
-  <polyline points="0,268 512,268 556,268 578,196 604,314 630,238 652,268 1280,268" fill="none" stroke="#2EE6A8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
-
-  <!-- verbs as chips -->
-  <text x="256" y="322" font-family="'JetBrains Mono','Fira Mono',Menlo,Consolas,monospace" font-size="24" fill="#2EE6A8" dominant-baseline="central">scan · doctor · diff · sync</text>
+  <polyline points="64,300 460,300 502,300 524,228 550,346 576,270 598,300 1216,300" fill="none" stroke="#2EE6A8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
 </svg>
