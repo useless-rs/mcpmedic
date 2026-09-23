@@ -1,0 +1,27 @@
+[package]
+name = "mcpmedic"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "First aid for MCP configs: scan, doctor, diff and sync MCP servers across every AI tool you use."
+license = "MIT"
+repository = "https://github.com/useless-rs/mcpmedic"
+readme = "README.md"
+keywords = ["mcp", "cli", "ai", "config", "developer-tools"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+toml_edit = "0.22"
+dirs = "5"
+colored = "2"
+thiserror = "2"
+
+[lints.rust]
+unsafe_code = "warn"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
