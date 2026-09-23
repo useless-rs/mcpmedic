@@ -984,7 +984,11 @@ fn warp_kiro_and_trae_are_discoverable() {
     assert!(ids.contains(&"warp"), "warp must appear: {ids:?}");
     assert!(ids.contains(&"kiro"), "kiro must appear: {ids:?}");
     assert!(ids.contains(&"trae"), "trae must appear: {ids:?}");
-    assert_eq!(ids.len(), 14, "14 tools expected: {ids:?}");
+    assert!(
+        ids.contains(&"antigravity"),
+        "antigravity must appear: {ids:?}"
+    );
+    assert_eq!(ids.len(), 15, "15 tools expected: {ids:?}");
 
     let _ = std::fs::remove_dir_all(&home);
 }

@@ -202,3 +202,11 @@ One line per improvement cycle: date, what changed, why.
   with them out of the box — scan, list, doctor, add, rm, sync, enable/
   disable, export, import, audit, `--json`, `--project`. JetBrains and
   Antigravity remain on the backlog. 1 new e2e test; 86 total.
+- **2026-09-23 · cycle 16 — Antigravity added (15 tools).** Google's
+  Antigravity IDE: `~/.gemini/config/mcp_config.json` with `serverUrl` for
+  remote servers (like Windsurf), project-scoped `.agents/mcp_config.json`.
+  Uses the standard `mcpServers` JSON format, so every existing command
+  works immediately. JetBrains deliberately excluded after research: their
+  IDEs are MCP *servers*, not clients — external tools connect TO them,
+  and there is no documented JetBrains-side MCP client config file. The
+  strict evidence bar wins. Backlog #7 is now complete. 86 tests.

@@ -256,7 +256,7 @@ pub(crate) fn build_json_entry(format: Format, tool: ToolId, transport: &Transpo
                 (Format::McpServers, ToolId::GeminiCli) => {
                     entry.insert("httpUrl".into(), json!(url));
                 }
-                (Format::McpServers, ToolId::Windsurf) => {
+                (Format::McpServers, ToolId::Windsurf | ToolId::Antigravity) => {
                     entry.insert("serverUrl".into(), json!(url));
                 }
                 (Format::McpServers, ToolId::Cursor) => {

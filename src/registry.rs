@@ -23,6 +23,7 @@ pub(crate) enum ToolId {
     Warp,
     Kiro,
     Trae,
+    Antigravity,
 }
 
 impl ToolId {
@@ -43,6 +44,7 @@ impl ToolId {
             Self::Warp => "warp",
             Self::Kiro => "kiro",
             Self::Trae => "trae",
+            Self::Antigravity => "antigravity",
         }
     }
 }
@@ -298,6 +300,15 @@ static REGISTRY: &[ToolSpec] = &[
             }
         },
     },
+    ToolSpec {
+        id: ToolId::Antigravity,
+        display: "Antigravity",
+        format: Format::McpServers,
+        writable: true,
+        disable: None,
+        project_path: Some(|project| project.join(".agents").join("mcp_config.json")),
+        path: |home, _| home.join(".gemini").join("config").join("mcp_config.json"),
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -338,7 +349,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 14);
+        assert_eq!(registry().len(), 15);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }
@@ -377,6 +388,7 @@ mod tests {
             ToolId::Opencode,
             ToolId::Warp,
             ToolId::Trae,
+            ToolId::Antigravity,
         ] {
             assert!(
                 by_id(id).disable.is_none(),
@@ -421,6 +433,10 @@ mod tests {
         assert_eq!(
             project_of(ToolId::Kiro),
             PathBuf::from("/repo/.kiro/settings/mcp.json")
+        );
+        assert_eq!(
+            project_of(ToolId::Antigravity),
+            PathBuf::from("/repo/.agents/mcp_config.json")
         );
         for id in [
             ToolId::ClaudeDesktop,
