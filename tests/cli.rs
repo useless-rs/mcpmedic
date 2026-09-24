@@ -1173,3 +1173,62 @@ fn doctor_flags_npx_footguns() {
     assert!(stdout.contains("npx without -y"), "{stdout}");
     assert!(stdout.contains("@latest forces"), "{stdout}");
 }
+
+#[test]
+fn preset_lists_bundles() {
+    let home = temp_home("preset-list");
+    let out = run(&home, &["preset", "list"]);
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("minimal"), "{stdout}");
+    assert!(stdout.contains("demo"), "{stdout}");
+    assert!(stdout.contains("server-memory"), "{stdout}");
+}
+
+#[test]
+fn preset_add_writes_bundle_to_tool() {
+    let home = temp_home("preset-add");
+    std::fs::create_dir_all(home.join(".cursor")).unwrap();
+    let out = run(&home, &["preset", "add", "minimal", "--to", "cursor"]);
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("memory"), "{stdout}");
+    assert!(stdout.contains("sequential-thinking"), "{stdout}");
+    let cfg: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(home.join(".cursor").join("mcp.json")).unwrap(),
+    )
+    .unwrap();
+    let servers = cfg["mcpServers"].as_object().unwrap();
+    assert!(servers.contains_key("memory"), "{cfg}");
+    assert!(servers.contains_key("sequential-thinking"), "{cfg}");
+    assert_eq!(
+        servers["memory"]["args"][1],
+        "@modelcontextprotocol/server-memory"
+    );
+}
+
+#[test]
+fn preset_add_skips_existing_and_unknown_fails() {
+    let home = temp_home("preset-skip");
+    std::fs::write(
+        home.join(".claude.json"),
+        r#"{"mcpServers":{"memory":{"command":"my-custom-memory","args":[]}}}"#,
+    )
+    .unwrap();
+    let out = run(&home, &["preset", "add", "minimal", "--to", "claude-code"]);
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("skipped"), "{stdout}");
+    let cfg: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(".claude.json")).unwrap()).unwrap();
+    assert_eq!(cfg["mcpServers"]["memory"]["command"], "my-custom-memory");
+    assert!(
+        cfg["mcpServers"]
+            .as_object()
+            .unwrap()
+            .contains_key("sequential-thinking")
+    );
+
+    let out = run(&home, &["preset", "add", "nope", "--to", "claude-code"]);
+    assert!(!out.status.success());
+}

@@ -368,3 +368,13 @@ One line per improvement cycle: date, what changed, why.
   commands, dialect violations, drift, bloat. 5-platform binaries
   (linux amd64/arm64, macOS amd64/arm64, Windows x86_64), Homebrew
   tap updated with v0.7.0 sha256 hashes. 106 tests (66 unit + 40 e2e).
+- **2026-09-24 · cycle 34 — preset server bundles.** `mcpmedic preset
+  list` shows curated zero-config bundles; `mcpmedic preset add
+  <name> --to <tool>` installs one (reusing the add machinery: resolve,
+  load_mutable, write_entry, commit with automatic backup). Two bundles
+  built from the still-maintained official reference servers:
+  `minimal` (memory + sequential-thinking) and `demo` (the everything
+  test server — pairs perfectly with doctor --probe's handshake and
+  tools/list query). Existing servers are skipped unless --force;
+  --dry-run previews; a next-step hint points at doctor --probe and
+  sync-all. 111 tests (68 unit + 43 e2e).

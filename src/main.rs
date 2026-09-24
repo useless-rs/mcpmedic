@@ -12,6 +12,7 @@ mod diff;
 mod doctor;
 mod format;
 mod model;
+mod presets;
 mod probe;
 mod registry;
 mod report;

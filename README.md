@@ -41,6 +41,7 @@ doesn't own, always atomically, always with an automatic backup first.
 ## Highlights
 
 - 🚀 **`init`** — one-shot onboarding: detect your configs, sync the richest everywhere
+- 📦 **`preset`** — curated zero-config bundles (`minimal`, `demo`): one command to a working setup
 - 🩺 **`doctor`** — parse errors, dead `command:` paths, unset `${VAR}` env references, npx footguns (`npx` missing `-y`, `@latest` round-trips), VS Code entries
   missing their mandatory `type`, remote entries whose `type` spelling their
   tool can't read, cross-tool config drift, duplicate servers, and
@@ -225,6 +226,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 |---|---|
 | `scan` (default) | Detect installed tools and their configs, with server counts |
 | `init` | One-shot onboarding: detect every configured tool, pick the richest as the source, sync it to every other installed tool. With `--json`: print the plan only, no files touched |
+| `preset list` / `preset add <name> --to <t> [--force] [--dry-run]` | Curated zero-config bundles: `minimal` (memory + sequential-thinking) and `demo` (the official everything test server). Skips existing servers unless `--force` |
 | `list [--tool <t>]` | Table of every server per tool |
 | `show <name>` | Every tool that configures a given server + drift check |
 | `doctor [--tool <t>] [--strict] [--fix] [--probe]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat, unset `${VAR}` env references (e.g. `${GITHUB_TOKEN}` or `${env:API_KEY}` referenced in `env`/`headers` but not present in the environment), npx footguns (missing `-y` hang risk, `@latest` registry round-trips). `--fix` applies safe auto-repairs (`--dry-run` previews); `--probe` speaks MCP: stdio servers get a real initialize handshake plus a tools/list query — reporting the server's name, protocol version and exposed tool count; a crashed server surfaces its stderr tail (the real failure cause); remotes get a TCP connect |

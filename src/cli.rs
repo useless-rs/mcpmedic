@@ -130,6 +130,12 @@ pub(crate) enum Cmd {
         dry_run: bool,
     },
 
+    /// Curated zero-config server bundles: list them or add one.
+    Preset {
+        #[command(subcommand)]
+        action: PresetAction,
+    },
+
     /// Remove a server from a tool's config.
     Rm {
         /// Name of the server to remove.
@@ -257,5 +263,26 @@ pub(crate) enum Cmd {
         /// Only back up this tool (id or display name).
         #[arg(long)]
         tool: Option<String>,
+    },
+}
+
+#[derive(Debug, clap::Subcommand)]
+pub(crate) enum PresetAction {
+    /// Show the available curated bundles and their servers.
+    List,
+
+    /// Add every server in a bundle to one tool.
+    Add {
+        /// Bundle name (see `mcpmedic preset list`).
+        name: String,
+        /// Target tool (id or display name).
+        #[arg(long)]
+        to: String,
+        /// Overwrite an existing server that has the same name.
+        #[arg(long)]
+        force: bool,
+        /// Show what would change without touching any file.
+        #[arg(long)]
+        dry_run: bool,
     },
 }
