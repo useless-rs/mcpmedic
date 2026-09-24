@@ -229,6 +229,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `rm <name> --from <t>` | Remove one server |
 | `enable` / `disable` <name> --from <t> | Park or resume a server without removing it, using the tool's own documented disable switch (`--dry-run` supported) |
 | `sync --from <a> --to <b>` | Additive merge; `--force`, `--names`, `--dry-run` supported |
+| `sync-all --from <a>` | Mirror one tool into every other detected tool (one-to-many); `--force`, `--names`, `--dry-run` supported |
 | `export [--out <file>]` | Dump everything to portable JSON |
 | `import <file> [--to <t>]` | Restore an export (per-tool sections or flat `servers` map) |
 | `audit [--tool <t>]` | Security audit: hardcoded secrets in env/header values (known token formats + entropy heuristic), config file permissions |

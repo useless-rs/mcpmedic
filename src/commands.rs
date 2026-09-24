@@ -144,6 +144,12 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
             force,
             dry_run,
         } => cmd_sync(&ctx, &from, &to, &names, force, dry_run),
+        Cmd::SyncAll {
+            from,
+            names,
+            force,
+            dry_run,
+        } => cmd_sync_all(&ctx, &from, &names, force, dry_run),
         Cmd::Export { out } => cmd_export(&ctx, out),
         Cmd::Import { file, to, dry_run } => cmd_import(&ctx, &file, to.as_deref(), dry_run),
         Cmd::Backup { tool } => cmd_backup(&ctx, tool.as_deref()),
@@ -1483,6 +1489,90 @@ fn cmd_restore(ctx: &Ctx, tool: Option<&str>, list: bool, latest: bool) -> ExitC
     if restored == 0 {
         println!("  no backups found to restore");
     } else {
+        println!("  restart the affected tool(s) for changes to take effect");
+    }
+    ExitCode::SUCCESS
+}
+
+fn cmd_sync_all(ctx: &Ctx, from: &str, names: &[String], force: bool, dry_run: bool) -> ExitCode {
+    let Ok(spec_from) = resolve(from) else {
+        return fail(&format!("unknown tool `{from}`"));
+    };
+
+    let source_servers = match ctx.load(spec_from) {
+        ConfigState::Missing => {
+            return fail(&format!(
+                "no config found for {} ({})",
+                spec_from.display,
+                display_path(&ctx.path(spec_from), &ctx.home)
+            ));
+        }
+        ConfigState::ParseError(msg) => {
+            return fail(&format!(
+                "{} config has a parse error: {msg}",
+                spec_from.display
+            ));
+        }
+        ConfigState::Loaded(cfg) => cfg.servers,
+    };
+
+    println!(
+        "{}",
+        report::header(&format!(
+            "sync-all: {} ({} server(s)) → every other detected tool",
+            spec_from.display,
+            source_servers.len()
+        ))
+    );
+
+    let targets: Vec<&'static ToolSpec> = ctx
+        .specs()
+        .into_iter()
+        .filter(|s| s.id != spec_from.id)
+        .collect();
+
+    let mut synced = 0;
+    for target_spec in targets {
+        let Ok((mut target, _)) = load_mutable(ctx, target_spec) else {
+            continue;
+        };
+        let plan = sync::plan(&source_servers, &target.servers, names, force);
+        if plan.to_add.is_empty() {
+            continue;
+        }
+        if dry_run {
+            for (name, transport) in &plan.to_add {
+                println!(
+                    "  + {name} (would add, {}) in {}",
+                    transport.kind(),
+                    target_spec.display
+                );
+            }
+            synced += 1;
+            continue;
+        }
+        for (name, transport) in &plan.to_add {
+            if let Err(e) = write_entry(target_spec, &mut target.raw, name, transport) {
+                return fail(&e);
+            }
+        }
+        match commit(ctx, target_spec, &target.raw, false) {
+            Ok(_) => {
+                synced += 1;
+                println!(
+                    "  {} {} server(s) → {}",
+                    report::glyph_ok(),
+                    plan.to_add.len(),
+                    target_spec.display
+                );
+            }
+            Err(e) => return fail(&e),
+        }
+    }
+
+    if synced == 0 {
+        println!("  nothing to sync — all detected tools are already covered");
+    } else if !dry_run {
         println!("  restart the affected tool(s) for changes to take effect");
     }
     ExitCode::SUCCESS

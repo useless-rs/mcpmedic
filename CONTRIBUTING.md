@@ -239,3 +239,9 @@ One line per improvement cycle: date, what changed, why.
   (~/.lmstudio/mcp.json) follows Cursor's `mcpServers` JSON notation per
   the official docs at lmstudio.ai/docs/app/mcp. Standard format — every
   existing command works immediately. 92 tests.
+- **2026-09-23 · cycle 21 — `mcpmedic sync-all`.** One-to-many sync:
+  mirror one tool's servers into every other detected tool in a single
+  command. `sync-all --from cursor` copies cursor's servers into Claude
+  Code, VS Code, Windsurf, Gemini CLI, etc. — each in the target's own
+  dialect. `--names` filters, `--force` overwrites drift, `--dry-run`
+  previews. Additive by design — never deletes. 92 tests.

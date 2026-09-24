@@ -177,6 +177,22 @@ pub(crate) enum Cmd {
         dry_run: bool,
     },
 
+    /// Sync from one tool into every other detected tool (one-to-many).
+    SyncAll {
+        /// Source tool (id or display name).
+        #[arg(long)]
+        from: String,
+        /// Only sync these server names (comma-separated).
+        #[arg(long, value_delimiter = ',')]
+        names: Vec<String>,
+        /// Also overwrite servers that exist in targets with different configs.
+        #[arg(long)]
+        force: bool,
+        /// Show the plan without touching any file.
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Dump every discovered server into a portable JSON file (or stdout).
     Export {
         /// Write to this file instead of stdout.
