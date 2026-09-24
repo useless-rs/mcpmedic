@@ -253,3 +253,9 @@ One line per improvement cycle: date, what changed, why.
   scopes to repo configs. Research: git status --short pattern,
   kubectl --no-headers, "return only what matters" from agent-tools
   engineering. 92 tests.
+- **2026-09-24 · cycle 23 — v0.4.0 released.** Version bumped from 0.3.0,
+  tag pushed, release workflow built all 5 platform binaries. Homebrew
+  formula updated with correct sha256 hashes. Release notes enumerate all
+  changes since v0.3.0: doctor --probe, sync-all, summary, LM Studio.
+  crates.io validated via cargo package (139 KB) but publish requires a
+  token the owner must provide: `cargo login <TOKEN>` + `cargo publish`.
