@@ -15,6 +15,7 @@ mod commands_diff;
 mod commands_doctor;
 mod commands_mutate;
 mod commands_portable;
+mod commands_preset;
 mod commands_probe;
 mod commands_read;
 mod commands_status;
