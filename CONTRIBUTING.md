@@ -235,3 +235,7 @@ One line per improvement cycle: date, what changed, why.
   unreachable → critical (gates CI), skipped → info. Research: MCP health
   check patterns from mcp-health-monitor, mcp-healthcheck, mcp-pulse,
   mcp2cli doctor. 5 new unit tests + existing 35 e2e; 92 total.
+- **2026-09-23 · cycle 20 — LM Studio added (16 tools).** LM Studio
+  (~/.lmstudio/mcp.json) follows Cursor's `mcpServers` JSON notation per
+  the official docs at lmstudio.ai/docs/app/mcp. Standard format — every
+  existing command works immediately. 92 tests.

@@ -24,6 +24,7 @@ pub(crate) enum ToolId {
     Kiro,
     Trae,
     Antigravity,
+    LmStudio,
 }
 
 impl ToolId {
@@ -45,6 +46,7 @@ impl ToolId {
             Self::Kiro => "kiro",
             Self::Trae => "trae",
             Self::Antigravity => "antigravity",
+            Self::LmStudio => "lm-studio",
         }
     }
 }
@@ -309,6 +311,15 @@ static REGISTRY: &[ToolSpec] = &[
         project_path: Some(|project| project.join(".agents").join("mcp_config.json")),
         path: |home, _| home.join(".gemini").join("config").join("mcp_config.json"),
     },
+    ToolSpec {
+        id: ToolId::LmStudio,
+        display: "LM Studio",
+        format: Format::McpServers,
+        writable: true,
+        disable: None,
+        project_path: None,
+        path: |home, _| home.join(".lmstudio").join("mcp.json"),
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -349,7 +360,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 15);
+        assert_eq!(registry().len(), 16);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }
