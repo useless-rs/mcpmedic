@@ -28,6 +28,7 @@ mod presets;
 mod probe;
 mod probe_stdio;
 mod registry;
+mod registry_tools;
 mod report;
 mod store;
 mod sync;
