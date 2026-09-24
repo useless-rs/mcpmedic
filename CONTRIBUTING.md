@@ -388,3 +388,16 @@ One line per improvement cycle: date, what changed, why.
   skip and automatic backup plumbing all apply unchanged. Entries that
   already pass -y/--yes, or npx with no args (nothing to
   auto-confirm), are untouched. 113 tests (69 unit + 44 e2e).
+- **2026-09-24 · cycle 36 — v0.8.0 released.** Version bump 0.7.0 →
+  0.8.0 shipping two features: preset server bundles (`mcpmedic
+  preset list` / `preset add <name> --to <tool>` — curated zero-config
+  bundles built from the still-maintained official reference servers:
+  minimal = memory + sequential-thinking, demo = the everything test
+  server) and the npx auto-repair (doctor --fix inserts the missing
+  -y at the front of npx args — auto-confirming the install prompt
+  instead of hanging, with --dry-run preview and automatic backup).
+  5-platform binaries, Homebrew tap updated with v0.8.0 sha256 hashes.
+  113 tests (69 unit + 44 e2e). Roadmap note: research identified
+  GitHub Copilot CLI (~/.copilot/mcp-config.json, standard mcpServers)
+  as the next registry candidate, plus Amp, Crush, Factory Droid,
+  Kimi Code and Qwen Code.
