@@ -167,14 +167,14 @@ fn diagnose_loaded(
         }
     }
 
-    if cfg.servers.len() > CONTEXT_BLOAT_THRESHOLD {
+    let active = cfg.servers.len().saturating_sub(cfg.disabled.len());
+    if active > CONTEXT_BLOAT_THRESHOLD {
         findings.push(Finding {
             severity: Severity::Info,
             tool: tool.id,
             server: None,
             message: format!(
-                "{} servers configured — every connected server costs context window; consider pruning",
-                cfg.servers.len()
+                "{active} servers connected — every connected server costs context window; consider pruning (parked servers are already excluded)"
             ),
         });
     }
@@ -481,5 +481,51 @@ mod tests {
             Path::new("/h")
         ));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn many_servers(n: usize) -> Servers {
+        let mut servers = Servers::new();
+        for i in 0..n {
+            servers.insert(
+                format!("srv{i:02}"),
+                crate::model::Transport::Stdio {
+                    command: "definitely-not-a-real-command-xyz".into(),
+                    args: vec![],
+                    env: BTreeMap::new(),
+                },
+            );
+        }
+        servers
+    }
+
+    #[test]
+    fn bloat_counts_only_connected_servers() {
+        let parked: BTreeSet<String> = ["srv00".to_owned(), "srv01".to_owned()]
+            .into_iter()
+            .collect();
+        let tools = vec![ToolLoad::new(
+            ToolId::Cursor,
+            Format::McpServers,
+            loaded_with_disabled(many_servers(16), vec![], parked),
+        )];
+        let findings = diagnose(&tools, Path::new("/home/u"), "");
+        assert!(
+            findings
+                .iter()
+                .all(|f| !f.message.contains("servers connected")),
+            "{findings:?}"
+        );
+        let tools = vec![ToolLoad::new(
+            ToolId::Cursor,
+            Format::McpServers,
+            loaded(many_servers(16), vec![]),
+        )];
+        let findings = diagnose(&tools, Path::new("/home/u"), "");
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.message.contains("16 servers connected")),
+            "{findings:?}"
+        );
     }
 }
