@@ -248,7 +248,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `enable` / `disable` <name> --from <t> | Park or resume a server without removing it, using the tool's own documented disable switch (`--dry-run` supported) |
 | `sync --from <a> --to <b>` | Additive merge; `--force`, `--names`, `--dry-run` supported |
 | `sync-all --from <a>` | Mirror one tool into every other detected tool (one-to-many); `--force`, `--names`, `--dry-run` supported |
-| `export [--out <file>]` | Dump everything to portable JSON |
+| `export [--out <file>] [--tool <t>]` | Dump discovered servers to portable JSON (or stdout); `--tool` limits to one tool |
 | `import <file> [--to <t>]` | Restore an export (per-tool sections or flat `servers` map) |
 | `audit [--tool <t>]` | Security audit: hardcoded secrets in env/header values (known token formats + entropy heuristic), config file permissions |
 | `completions <shell>` | Print completions for bash, zsh, fish, elvish or powershell |
@@ -259,6 +259,9 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 
 All commands accept `--project <dir>` to operate on repo-checked-in configs
 instead of user-global files; all mutation commands support `--dry-run`.
+Every command accepts global `--quiet` (essential rows only, no brand
+headers or next-step hints) and `--color auto|always|never` (`auto`
+respects `NO_COLOR` and pipes).
 All read commands (`scan`, `list`, `show`, `doctor`, `diff`, `audit`) accept `--json`
 for schema-versioned machine output on stdout — exit codes are unchanged,
 so `doctor --json` still exits 1 on critical findings and gates CI:
