@@ -245,3 +245,11 @@ One line per improvement cycle: date, what changed, why.
   Code, VS Code, Windsurf, Gemini CLI, etc. — each in the target's own
   dialect. `--names` filters, `--force` overwrites drift, `--dry-run`
   previews. Additive by design — never deletes. 92 tests.
+- **2026-09-23 · cycle 22 — `mcpmedic summary`.** One-line health
+  overview for shell prompts, CI gates, and quick checks:
+  `mcpmedic: 16 tools · 5 configured · 23 servers · 2 parked · 0 critical
+  · 2 warnings`. Exits 1 on critical findings (gates CI). `--json`
+  emits schema-versioned output with a `healthy` boolean. `--project`
+  scopes to repo configs. Research: git status --short pattern,
+  kubectl --no-headers, "return only what matters" from agent-tools
+  engineering. 92 tests.

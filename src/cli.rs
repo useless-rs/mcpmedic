@@ -233,6 +233,9 @@ pub(crate) enum Cmd {
         latest: bool,
     },
 
+    /// One-line health overview (tools, servers, findings) for shell prompts and CI gates.
+    Summary,
+
     /// Generate shell completions to stdout (bash, zsh, fish, elvish, powershell).
     Completions {
         /// Shell to generate completions for.

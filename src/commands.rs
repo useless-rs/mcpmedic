@@ -155,6 +155,7 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
         Cmd::Backup { tool } => cmd_backup(&ctx, tool.as_deref()),
         Cmd::Restore { tool, list, latest } => cmd_restore(&ctx, tool.as_deref(), list, latest),
         Cmd::Audit { tool } => cmd_audit(&ctx, tool.as_deref()),
+        Cmd::Summary => cmd_summary(&ctx),
         Cmd::Completions { shell } => cmd_completions(shell),
     }
 }
@@ -1576,6 +1577,70 @@ fn cmd_sync_all(ctx: &Ctx, from: &str, names: &[String], force: bool, dry_run: b
         println!("  restart the affected tool(s) for changes to take effect");
     }
     ExitCode::SUCCESS
+}
+
+fn cmd_summary(ctx: &Ctx) -> ExitCode {
+    let mut configured = 0;
+    let mut total_servers = 0;
+    let mut parked = 0;
+    let loads: Vec<ToolLoad> = ctx
+        .specs()
+        .into_iter()
+        .map(|spec| {
+            let state = ctx.load(spec);
+            if let ConfigState::Loaded(cfg) = &state {
+                configured += 1;
+                total_servers += cfg.servers.len();
+                parked += cfg.disabled.len();
+            }
+            ToolLoad::new(spec.id, spec.format, state)
+        })
+        .collect();
+
+    let path_env = std::env::var("PATH").unwrap_or_default();
+    let findings = doctor::diagnose(&loads, &ctx.home, &path_env);
+    let critical = findings
+        .iter()
+        .filter(|f| f.severity == Severity::Critical)
+        .count();
+    let warnings = findings
+        .iter()
+        .filter(|f| f.severity == Severity::Warning)
+        .count();
+
+    if ctx.json {
+        print_json(&json!({
+            "schema_version": 1,
+            "generator": format!("mcpmedic {}", env!("CARGO_PKG_VERSION")),
+            "tools": ctx.specs().len(),
+            "configured": configured,
+            "servers": total_servers,
+            "parked": parked,
+            "critical": critical,
+            "warnings": warnings,
+            "healthy": critical == 0,
+        }));
+        return if critical > 0 {
+            ExitCode::from(1)
+        } else {
+            ExitCode::SUCCESS
+        };
+    }
+
+    println!(
+        "mcpmedic: {} tools · {} configured · {} servers · {} parked · {} critical · {} warnings",
+        ctx.specs().len(),
+        configured,
+        total_servers,
+        parked,
+        critical,
+        warnings
+    );
+    if critical > 0 {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 fn cmd_backup(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
