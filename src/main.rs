@@ -33,6 +33,7 @@ mod report;
 mod store;
 mod sync;
 mod yaml;
+mod yaml_flow;
 
 use std::process::ExitCode;
 
