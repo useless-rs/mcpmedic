@@ -26,6 +26,8 @@ pub(crate) fn cmd_init(ctx: &Ctx) -> ExitCode {
     if candidates.is_empty() {
         if ctx.json {
             print_json(&json!({
+                "schema_version": 1,
+                "generator": format!("mcpmedic {}", env!("CARGO_PKG_VERSION")),
                 "candidates": [],
                 "next": "mcpmedic preset add minimal --to claude-code",
             }));
@@ -60,6 +62,8 @@ pub(crate) fn cmd_init(ctx: &Ctx) -> ExitCode {
             .map(|(spec, n)| json!({ "tool": spec.id.as_str(), "servers": n }))
             .collect();
         print_json(&json!({
+            "schema_version": 1,
+            "generator": format!("mcpmedic {}", env!("CARGO_PKG_VERSION")),
             "candidates": list,
             "source": source_id,
             "servers": count,

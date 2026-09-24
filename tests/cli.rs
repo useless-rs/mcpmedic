@@ -1728,6 +1728,17 @@ fn doctor_fix_repairs_codex_toml_npx_yes() {
 }
 
 #[test]
+fn init_json_is_enveloped() {
+    let home = temp_home("init-json-env");
+    let out = run(&home, &["--json", "init"]);
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+    let parsed: serde_json::Value = serde_json::from_str(&stdout(&out)).unwrap();
+    assert_eq!(parsed["schema_version"], 1);
+    assert!(parsed["candidates"].is_array());
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn preset_list_json_is_enveloped() {
     let home = temp_home("preset-json");
     let out = run(&home, &["preset", "list", "--json"]);
