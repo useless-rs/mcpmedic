@@ -47,6 +47,11 @@ pub(crate) enum Cmd {
     /// Detect every installed AI tool and its MCP config (default command).
     Scan,
 
+    /// One-shot onboarding: detect your configs, pick the richest as the
+    /// source, and sync it to every other installed tool.
+    /// With --json: print the detection report only, no files are touched.
+    Init,
+
     /// List MCP servers, for every tool or one (`--tool`).
     List {
         /// Only show servers for this tool (id or display name).

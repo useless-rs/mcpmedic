@@ -1076,3 +1076,54 @@ fn completions_are_generated_for_every_shell() {
     assert_eq!(out.status.code(), Some(2));
     let _ = std::fs::remove_dir_all(&home);
 }
+
+#[test]
+fn init_reports_when_nothing_found() {
+    let home = temp_home("init-empty");
+    let out = run(&home, &["init"]);
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("No MCP servers found"), "got: {stdout}");
+}
+
+#[test]
+fn init_picks_richest_and_syncs_to_installed_tools() {
+    let home = temp_home("init-sync");
+    std::fs::write(
+        home.join(".claude.json"),
+        r#"{"mcpServers":{"alpha":{"command":"echo","args":["a"]},"beta":{"command":"echo","args":["b"]}}}"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(home.join(".cursor")).unwrap();
+    let out = run(&home, &["init"]);
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("claude-code"), "source reported: {stdout}");
+    let cursor: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(home.join(".cursor").join("mcp.json")).unwrap(),
+    )
+    .unwrap();
+    let servers = cursor["mcpServers"].as_object().unwrap();
+    assert!(servers.contains_key("alpha"), "alpha synced: {cursor}");
+    assert!(servers.contains_key("beta"), "beta synced: {cursor}");
+}
+
+#[test]
+fn init_json_reports_source_without_touching_files() {
+    let home = temp_home("init-json");
+    std::fs::write(
+        home.join(".claude.json"),
+        r#"{"mcpServers":{"alpha":{"command":"echo","args":["a"]}}}"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(home.join(".cursor")).unwrap();
+    let out = run(&home, &["--json", "init"]);
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(v["source"], "claude-code");
+    assert!(
+        !home.join(".cursor").join("mcp.json").exists(),
+        "json mode must not touch files"
+    );
+}

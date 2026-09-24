@@ -162,6 +162,7 @@ mcpmedic — first aid for MCP configs
   ...
 
 $ mcpmedic list                   # every server, every tool, normalized
+$ mcpmedic init                   # one-shot setup: detect + sync everywhere
 $ mcpmedic doctor                 # what is broken, drifted or bloated
 $ mcpmedic doctor --fix            # apply the safe repairs (backed up first)
 $ mcpmedic show context7           # where is this server configured?
@@ -222,6 +223,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | Command | What it does |
 |---|---|
 | `scan` (default) | Detect installed tools and their configs, with server counts |
+| `init` | One-shot onboarding: detect every configured tool, pick the richest as the source, sync it to every other installed tool. With `--json`: print the plan only, no files touched |
 | `list [--tool <t>]` | Table of every server per tool |
 | `show <name>` | Every tool that configures a given server + drift check |
 | `doctor [--tool <t>] [--strict] [--fix] [--probe]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat, unset `${VAR}` env references (e.g. `${GITHUB_TOKEN}` or `${env:API_KEY}` referenced in `env`/`headers` but not present in the environment). `--fix` applies safe auto-repairs (`--dry-run` previews); `--probe` verifies each server is reachable (spawn stdio 500ms, TCP connect 3s) |

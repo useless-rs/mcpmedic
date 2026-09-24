@@ -100,6 +100,7 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
     };
     match cmd {
         Cmd::Scan => cmd_scan(&ctx),
+        Cmd::Init => cmd_init(&ctx),
         Cmd::List { tool } => cmd_list(&ctx, tool.as_deref()),
         Cmd::Show { name } => cmd_show(&ctx, &name),
         Cmd::Doctor {
@@ -1493,6 +1494,82 @@ fn cmd_restore(ctx: &Ctx, tool: Option<&str>, list: bool, latest: bool) -> ExitC
         println!("  restart the affected tool(s) for changes to take effect");
     }
     ExitCode::SUCCESS
+}
+
+fn cmd_init(ctx: &Ctx) -> ExitCode {
+    let mut candidates: Vec<(&'static ToolSpec, usize)> = Vec::new();
+    for spec in ctx.specs() {
+        if let ConfigState::Loaded(cfg) = ctx.load(spec) {
+            if !cfg.servers.is_empty() {
+                candidates.push((spec, cfg.servers.len()));
+            }
+        }
+    }
+
+    if candidates.is_empty() {
+        if ctx.json {
+            print_json(&json!({
+                "candidates": [],
+                "next": "mcpmedic add claude-code <name> -- <command> [args]",
+            }));
+        } else {
+            println!("{}", report::brand_header());
+            if let Some(project) = &ctx.project {
+                println!("  project: {}", project.display());
+            }
+            println!();
+            println!("  No MCP servers found in any tool.");
+            println!();
+            println!("  Add your first server:");
+            println!(
+                "    mcpmedic add claude-code demo -- npx -y @modelcontextprotocol/server-memory"
+            );
+            println!();
+            println!("  Then run `mcpmedic init` again to sync it to every other installed tool.");
+        }
+        return ExitCode::SUCCESS;
+    }
+
+    candidates.sort_by_key(|&(_, count)| std::cmp::Reverse(count));
+    let (source, count) = candidates[0];
+    let source_id = source.id.as_str();
+
+    if ctx.json {
+        let list: Vec<Value> = candidates
+            .iter()
+            .map(|(spec, n)| json!({ "tool": spec.id.as_str(), "servers": n }))
+            .collect();
+        print_json(&json!({
+            "candidates": list,
+            "source": source_id,
+            "servers": count,
+            "next": format!("mcpmedic sync-all --from {source_id}"),
+        }));
+        return ExitCode::SUCCESS;
+    }
+
+    println!("{}", report::brand_header());
+    if let Some(project) = &ctx.project {
+        println!("  project: {}", project.display());
+    }
+    println!();
+    println!("  MCP configs found:");
+    for (spec, n) in &candidates {
+        println!("    {:<14} {} server(s)", spec.id.as_str(), n);
+    }
+    println!();
+    println!(
+        "  Using {} as the source ({count} server(s), the most anywhere).",
+        source.display
+    );
+    println!();
+
+    let code = cmd_sync_all(ctx, source_id, &[], false, false);
+    if code == ExitCode::SUCCESS {
+        println!();
+        println!("  Next: `mcpmedic doctor` verifies the merged setup is healthy.");
+    }
+    code
 }
 
 fn cmd_sync_all(ctx: &Ctx, from: &str, names: &[String], force: bool, dry_run: bool) -> ExitCode {

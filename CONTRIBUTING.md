@@ -276,3 +276,14 @@ One line per improvement cycle: date, what changed, why.
   style), multiple references per value, and rejects invalid POSIX
   names (leading digit, symbols). Warning severity only: the var may be
   set when the IDE actually runs the server. 93 tests.
+
+- **2026-09-24 · cycle 26 — `mcpmedic init` — one-shot onboarding.**
+  Zero prompts (per clig.dev: "never require a prompt"): init detects
+  every configured tool, picks the richest config as the source (most
+  servers; ties keep registry order), and syncs it to every other
+  installed tool via the sync-all machinery — only tools whose config
+  directories exist are written, so nothing is created for tools the
+  user has not installed. No configs found → prints a working
+  `mcpmedic add` example and tells the user to re-run init afterwards.
+  --json prints the detection report only (candidates, source, next
+  command) without touching any file. 96 tests.
