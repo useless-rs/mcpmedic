@@ -118,7 +118,8 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
             fix,
             dry_run,
             probe,
-        } => cmd_doctor(&ctx, tool.as_deref(), strict, fix, dry_run, probe),
+            explain,
+        } => cmd_doctor(&ctx, tool.as_deref(), strict, fix, dry_run, probe, explain),
         Cmd::Diff { a, b } => cmd_diff(&ctx, &a, &b),
         Cmd::Add {
             name,
@@ -615,6 +616,82 @@ fn cmd_show(ctx: &Ctx, name: &str) -> ExitCode {
 // doctor / diff
 // ---------------------------------------------------------------------------
 
+fn fix_hint(message: &str) -> Option<&'static str> {
+    if message.contains("config cannot be parsed") {
+        return Some(
+            "fix the JSON/TOML syntax by hand — `mcpmedic show <tool>` prints the exact path; mcpmedic refuses to edit broken files",
+        );
+    }
+    if message.contains("was not found on this machine") {
+        return Some(
+            "install the binary, use an absolute path, or remove the server: `mcpmedic rm <name> --from <tool>`",
+        );
+    }
+    if message.contains("is not set in this environment") {
+        return Some(
+            "export the variable in the shell profile your AI tool inherits, or set the value directly",
+        );
+    }
+    if message.contains("npx without -y") {
+        return Some(
+            "`mcpmedic doctor --fix` inserts the missing -y automatically (preview with --dry-run)",
+        );
+    }
+    if message.contains("@latest forces a registry round-trip") {
+        return Some(
+            "pin an exact version (e.g. pkg@2.1.0) — rewrite the entry with `mcpmedic rm` + `mcpmedic add`",
+        );
+    }
+    if message.contains("requires a `type` field") || message.contains("no `type`") {
+        return Some("`mcpmedic doctor --fix` adds the required type field automatically");
+    }
+    if message.contains("is not accepted by") {
+        return Some(
+            "`mcpmedic doctor --fix` corrects the type spelling to the tool's dialect automatically",
+        );
+    }
+    if message.contains("entry is not a JSON object") || message.contains("entry has neither") {
+        return Some("every server needs `command` (stdio) or a URL field (remote)");
+    }
+    if message.contains("identical duplicate") {
+        return Some(
+            "identical duplicates are harmless; remove extras with `mcpmedic rm <name> --from <tool>`",
+        );
+    }
+    if message.contains("config drift between tools") {
+        return Some(
+            "`mcpmedic diff <tool-a> <tool-b>` shows the drift; `mcpmedic sync` propagates one way",
+        );
+    }
+    if message.contains("consider pruning") {
+        return Some(
+            "park servers you rarely use: `mcpmedic disable <name> --from <tool>` — parked servers stay in the file but are skipped",
+        );
+    }
+    if message.contains("unreachable: process exited") {
+        return Some(
+            "the stderr tail names the real cause — fix it and re-run `mcpmedic doctor --probe --tool <tool>` to verify",
+        );
+    }
+    if message.contains("unreachable: failed to start") {
+        return Some(
+            "the command could not even be spawned — check the name, path and permissions",
+        );
+    }
+    if message.contains("unreachable: connect failed") {
+        return Some("check the URL, the port and whether the endpoint is up");
+    }
+    if message.contains("no MCP initialize response within 3s") {
+        return Some(
+            "slow startup is common with npx — run your IDE once to warm the npm cache, then re-probe",
+        );
+    }
+    if message.contains("server name is empty") {
+        return Some("rename the server — most tools refuse empty keys");
+    }
+    None
+}
+
 #[expect(clippy::too_many_lines)]
 #[expect(clippy::fn_params_excessive_bools)]
 fn cmd_doctor(
@@ -624,6 +701,7 @@ fn cmd_doctor(
     fix: bool,
     dry_run: bool,
     probe: bool,
+    explain: bool,
 ) -> ExitCode {
     let specs: Vec<&'static ToolSpec> = match tool {
         Some(name) => match resolve(name) {
@@ -701,6 +779,7 @@ fn cmd_doctor(
                     "tool": f.tool.as_str(),
                     "server": f.server,
                     "message": f.message,
+                    "fix": fix_hint(&f.message),
                 })
             })
             .collect();
@@ -782,6 +861,20 @@ fn cmd_doctor(
         "  {} critical · {} warning(s) · {} info",
         by_severity[0], by_severity[1], by_severity[2]
     );
+    if explain && !findings.is_empty() {
+        println!();
+        println!("  How to fix:");
+        let mut shown: Vec<&str> = Vec::new();
+        for f in &findings {
+            let Some(hint) = fix_hint(&f.message) else {
+                continue;
+            };
+            if !shown.contains(&hint) {
+                println!("    • {hint}");
+                shown.push(hint);
+            }
+        }
+    }
     if by_severity[0] > 0 || (strict && by_severity[1] > 0) {
         ExitCode::from(1)
     } else {
@@ -1884,4 +1977,38 @@ fn cmd_backup(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
         println!("  no configs found to back up");
     }
     ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fix_hint;
+
+    #[test]
+    fn fix_hints_match_known_categories() {
+        assert!(fix_hint("config cannot be parsed: boom").is_some());
+        assert!(fix_hint("command `npx` was not found on this machine").is_some());
+        assert!(
+            fix_hint("env var `X` referenced in `env` is not set in this environment").is_some()
+        );
+        assert!(fix_hint(
+            "npx without -y can hang waiting for interactive confirmation when the package is not cached"
+        )
+        .is_some());
+        assert!(fix_hint(
+            "@latest forces a registry round-trip on every launch — a common cause of -32001 timeouts; pin an exact version"
+        )
+        .is_some());
+        assert!(
+            fix_hint("server `x`: VS Code requires a `type` field (`stdio` or `http`)").is_some()
+        );
+        assert!(fix_hint("identical duplicate in claude-code, cursor").is_some());
+        assert!(fix_hint("config drift between tools: claude-code, cursor").is_some());
+        assert!(
+            fix_hint("unreachable: process exited with status 1 before answering MCP initialize")
+                .is_some()
+        );
+        assert!(fix_hint("3 servers configured — consider pruning").is_some());
+        assert!(fix_hint("probe: MCP handshake ok — `x` speaks protocol 2025-11-25").is_none());
+        assert!(fix_hint("probe skipped: templated command").is_none());
+    }
 }

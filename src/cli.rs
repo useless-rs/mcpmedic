@@ -93,6 +93,11 @@ pub(crate) enum Cmd {
         /// endpoints get a TCP connect.
         #[arg(long)]
         probe: bool,
+
+        /// After the findings, print how-to-fix guidance for each
+        /// problem category found in this run.
+        #[arg(long)]
+        explain: bool,
     },
 
     /// Compare the servers of two tools and show the drift.

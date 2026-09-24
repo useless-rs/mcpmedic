@@ -1272,3 +1272,21 @@ fn doctor_fix_inserts_npx_yes_flag() {
         "@modelcontextprotocol/server-memory"
     );
 }
+
+#[test]
+fn doctor_explain_prints_fix_hints() {
+    let home = temp_home("doctor-explain");
+    std::fs::write(
+        home.join(".claude.json"),
+        r#"{"mcpServers":{"mem":{"command":"npx","args":["@modelcontextprotocol/server-memory"]}}}"#,
+    )
+    .unwrap();
+    let out = run(&home, &["doctor", "--explain"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("How to fix"), "{stdout}");
+    assert!(stdout.contains("doctor --fix"), "{stdout}");
+    let out = run(&home, &["--json", "doctor"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("\"fix\":"), "{stdout}");
+    assert!(stdout.contains("doctor --fix"), "{stdout}");
+}

@@ -483,3 +483,15 @@ One line per improvement cycle: date, what changed, why.
   gitignored .devin/config.local.json override is deliberately not
   mcpmedic's business). Plain registry additions — zero format
   changes needed. 114 tests (70 unit + 44 e2e).
+- **2026-09-24 · cycle 44 — doctor --explain.** A new --explain flag
+  appends a "How to fix" section after the findings, keyed by the
+  problem categories present in the run (the smcp-doctor pattern:
+  every finding class with a repair gets the exact repair path;
+  healthy-probe and skip findings carry none). The hints are
+  action-oriented — dead commands point at `mcpmedic rm`, missing
+  npx -y at `doctor --fix`, env vars at the shell profile, drift at
+  `mcpmedic diff`/`sync`, bloat at `mcpmedic disable`, probe crashes
+  at the stderr tail + `--probe --tool`, dialect violations at
+  `doctor --fix`. JSON findings now carry a per-finding `fix` field
+  unconditionally (the fixmcp machine-actionable pattern). Hints
+  are deduplicated per run. 116 tests (71 unit + 45 e2e).
