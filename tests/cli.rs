@@ -1606,6 +1606,20 @@ fn restore_dry_run_touches_nothing() {
 }
 
 #[test]
+fn project_mode_rejects_missing_directory() {
+    let home = temp_home("project-missing");
+    let missing = home.join("does-not-exist");
+    let out = run(&home, &["scan", "--project", missing.to_str().unwrap()]);
+    assert!(!out.status.success());
+    assert!(
+        stderr(&out).contains("does not exist"),
+        "got: {}",
+        stderr(&out)
+    );
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn summary_strict_fails_on_warnings() {
     let home = sample_home("summary-strict");
     let lax = run(&home, &["summary"]);

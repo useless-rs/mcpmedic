@@ -19,6 +19,14 @@ use crate::commands_sync::{cmd_sync, cmd_sync_all};
 
 /// Entry point: dispatch a parsed CLI to a command.
 pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
+    if let Some(project) = cli.project.as_deref() {
+        if !project.exists() {
+            return fail(&format!(
+                "project directory {} does not exist",
+                project.display()
+            ));
+        }
+    }
     let ctx = Ctx::new(cli.project, cli.json, cli.quiet);
     let Some(cmd) = cli.cmd else {
         return cmd_scan(&ctx);
