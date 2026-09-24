@@ -1546,6 +1546,19 @@ fn diff_exit_code_gates_on_drift() {
 }
 
 #[test]
+fn export_tool_filters_to_one_tool() {
+    let home = sample_home("export-tool");
+    let out = run(&home, &["export", "--tool", "cursor"]);
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+    let parsed: serde_json::Value = serde_json::from_str(&stdout(&out)).unwrap();
+    assert!(parsed["tools"]["cursor"].is_object());
+    assert!(parsed["tools"].get("claude-code").is_none());
+    let bad = run(&home, &["export", "--tool", "nosuchtool"]);
+    assert!(!bad.status.success());
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn sync_all_reports_unwritable_targets() {
     let home = sample_home("sync-all-skip");
     write(&home, ".codeium/windsurf/mcp_config.json", "{broken json");

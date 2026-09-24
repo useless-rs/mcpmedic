@@ -174,7 +174,7 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
             force,
             dry_run,
         } => cmd_sync_all(&ctx, &from, &names, force, dry_run),
-        Cmd::Export { out } => cmd_export(&ctx, out),
+        Cmd::Export { out, tool } => cmd_export(&ctx, out, tool.as_deref()),
         Cmd::Import { file, to, dry_run } => cmd_import(&ctx, &file, to.as_deref(), dry_run),
         Cmd::Backup { tool } => cmd_backup(&ctx, tool.as_deref()),
         Cmd::Restore {
@@ -1553,10 +1553,17 @@ fn portable_entry(transport: &Transport) -> Value {
     format::build_json_entry(Format::McpServers, ToolId::ClaudeCode, transport)
 }
 
-fn cmd_export(ctx: &Ctx, out: Option<PathBuf>) -> ExitCode {
+fn cmd_export(ctx: &Ctx, out: Option<PathBuf>, tool: Option<&str>) -> ExitCode {
+    let specs: Vec<&'static ToolSpec> = match tool {
+        Some(name) => match resolve(name) {
+            Ok(spec) => vec![spec],
+            Err(e) => return fail(&e),
+        },
+        None => ctx.specs(),
+    };
     let mut tools = serde_json::Map::new();
     let mut server_count = 0;
-    for spec in ctx.specs() {
+    for spec in specs {
         if let ConfigState::Loaded(cfg) = ctx.load(spec) {
             if cfg.servers.is_empty() {
                 continue;

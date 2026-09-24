@@ -234,6 +234,9 @@ pub(crate) enum Cmd {
         /// Write to this file instead of stdout.
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Only export this tool (id or display name).
+        #[arg(long)]
+        tool: Option<String>,
     },
 
     /// Merge servers from an exported file back into your tools.
