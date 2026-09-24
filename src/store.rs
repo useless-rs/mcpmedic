@@ -5,6 +5,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
@@ -225,11 +226,41 @@ pub(crate) fn persist(
         None
     };
 
-    let tmp = path.with_extension(format!("mcpmedic-{}.tmp", epoch_millis()));
-    fs::write(&tmp, contents)?;
+    let tmp = tmp_path(path);
+    if let Err(e) = fs::write(&tmp, contents) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
     apply_config_perms_unix(&tmp, original_perms);
-    fs::rename(&tmp, path)?;
+    if let Err(e) = sync_tmp(&tmp) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
+    if let Err(e) = fs::rename(&tmp, path) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
     Ok(backup)
+}
+
+/// Collision-proof sibling tmp path: same directory (so rename stays atomic),
+/// unique per process + millisecond + counter so two persists in the same
+/// millisecond — or a stale tmp from a crashed run — can never clobber.
+fn tmp_path(path: &Path) -> PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+    path.with_extension(format!(
+        "mcpmedic-{}-{}-{n}.tmp",
+        std::process::id(),
+        epoch_millis()
+    ))
+}
+
+/// Flush tmp file contents to the OS before rename so a crash can never leave
+/// a truncated config behind.
+fn sync_tmp(tmp: &Path) -> std::io::Result<()> {
+    let f = fs::File::open(tmp)?;
+    f.sync_all()
 }
 
 #[cfg(unix)]
@@ -305,6 +336,15 @@ mod tests {
         assert!(!cfg.editable, "commented configs must not be editable");
         assert_eq!(cfg.servers.len(), 1);
         let _ = fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn tmp_paths_are_unique_within_a_process() {
+        let base = Path::new("/tmp/mcp.json");
+        let a = tmp_path(base);
+        let b = tmp_path(base);
+        assert_ne!(a, b);
+        assert_eq!(a.parent(), b.parent());
     }
 
     #[test]
