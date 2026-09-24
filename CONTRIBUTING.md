@@ -401,3 +401,13 @@ One line per improvement cycle: date, what changed, why.
   GitHub Copilot CLI (~/.copilot/mcp-config.json, standard mcpServers)
   as the next registry candidate, plus Amp, Crush, Factory Droid,
   Kimi Code and Qwen Code.
+- **2026-09-24 · cycle 37 — GitHub Copilot CLI added (18 tools).**
+  GitHub's official agentic CLI: ~/.copilot/mcp-config.json with the
+  standard mcpServers format (per the official GitHub docs — the same
+  config `copilot mcp add` writes). Project-scoped at
+  .github/mcp.json, the documented repo-shared location (Copilot
+  also reads generic .mcp.json walking up to the repo root, which
+  mcpmedic already covers via Claude Code's project scope). No
+  documented disable flag → none. README stats line also refreshed
+  (92 → 113 tests, stale since cycle 23). 113 tests (69 unit +
+  44 e2e).

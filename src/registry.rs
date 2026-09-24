@@ -26,6 +26,7 @@ pub(crate) enum ToolId {
     Antigravity,
     LmStudio,
     Continue,
+    Copilot,
 }
 
 impl ToolId {
@@ -49,6 +50,7 @@ impl ToolId {
             Self::Antigravity => "antigravity",
             Self::LmStudio => "lm-studio",
             Self::Continue => "continue",
+            Self::Copilot => "copilot",
         }
     }
 }
@@ -336,6 +338,15 @@ static REGISTRY: &[ToolSpec] = &[
         }),
         path: |home, _| home.join(".continue").join("mcpServers").join("mcp.json"),
     },
+    ToolSpec {
+        id: ToolId::Copilot,
+        display: "GitHub Copilot CLI",
+        format: Format::McpServers,
+        writable: true,
+        disable: None,
+        project_path: Some(|project| project.join(".github").join("mcp.json")),
+        path: |home, _| home.join(".copilot").join("mcp-config.json"),
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -376,7 +387,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 17);
+        assert_eq!(registry().len(), 18);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }
@@ -464,6 +475,10 @@ mod tests {
         assert_eq!(
             project_of(ToolId::Antigravity),
             PathBuf::from("/repo/.agents/mcp_config.json")
+        );
+        assert_eq!(
+            project_of(ToolId::Copilot),
+            PathBuf::from("/repo/.github/mcp.json")
         );
         for id in [
             ToolId::ClaudeDesktop,
