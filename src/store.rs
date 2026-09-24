@@ -12,6 +12,7 @@ use serde_json::Value;
 
 use crate::format::{self, Format};
 use crate::format_toml;
+use crate::format_yaml;
 use crate::model::Servers;
 use crate::registry::ToolSpec;
 
@@ -73,9 +74,9 @@ pub(crate) fn load(spec: &ToolSpec, path: &Path) -> ConfigState {
     if spec.format == Format::Yaml {
         return match crate::yaml::parse_yaml(&contents) {
             Ok(doc) => {
-                let (servers, problems) = format::yaml_servers(spec.id, &doc);
+                let (servers, problems) = format_yaml::yaml_servers(spec.id, &doc);
                 let disabled = spec.disable.as_ref().map_or_else(BTreeSet::new, |flag| {
-                    format::yaml_disabled(spec.id, flag, &doc)
+                    format_yaml::yaml_disabled(spec.id, flag, &doc)
                 });
                 ConfigState::Loaded(Box::new(LoadedConfig {
                     raw: RawDoc::Json(doc),

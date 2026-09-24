@@ -12,6 +12,7 @@ mod diff;
 mod doctor;
 mod format;
 mod format_toml;
+mod format_yaml;
 mod model;
 mod presets;
 mod probe;
