@@ -492,6 +492,9 @@ fn probe_remote(url: &str, budget: ProbeBudget) -> Probe {
 fn extract_host_port(url: &str) -> Option<(String, u16)> {
     let after_scheme = url.split("://").nth(1)?;
     let host_port = after_scheme.split('/').next()?;
+    // Strip `user:pass@` credentials: without this, `rsplit_once(':')`
+    // below splits inside the userinfo and DNS resolution misreports.
+    let host_port = host_port.rsplit('@').next().unwrap_or(host_port);
     let (host, port) = match host_port.rsplit_once(':') {
         Some((h, p)) => match p.parse::<u16>() {
             Ok(port) => (h.to_string(), port),
@@ -514,6 +517,23 @@ fn extract_host_port(url: &str) -> Option<(String, u16)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn host_port_parsing_handles_ports_userinfo_and_defaults() {
+        assert_eq!(
+            extract_host_port("https://example.com/mcp"),
+            Some(("example.com".to_owned(), 443))
+        );
+        assert_eq!(
+            extract_host_port("http://example.com:8080/mcp"),
+            Some(("example.com".to_owned(), 8080))
+        );
+        assert_eq!(
+            extract_host_port("https://user:pass@example.com/mcp"),
+            Some(("example.com".to_owned(), 443))
+        );
+        assert!(extract_host_port("not-a-url").is_none());
+    }
 
     #[test]
     fn stdio_probe_reports_silent_runner() {
