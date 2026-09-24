@@ -378,3 +378,13 @@ One line per improvement cycle: date, what changed, why.
   tools/list query). Existing servers are skipped unless --force;
   --dry-run previews; a next-step hint points at doctor --probe and
   sync-all. 111 tests (68 unit + 43 e2e).
+- **2026-09-24 · cycle 35 — doctor --fix repairs npx.** The --fix
+  flag now inserts the missing `-y` at the front of any npx server's
+  args — auto-confirming the install prompt instead of hanging (the
+  #1 real-world MCP failure per the C29 research; --yes first-in-args
+  is the canonical position per real-world 2026 configs). The repair
+  lives in a format-agnostic helper (fix_npx_yes) called from
+  fix_json_config, so the existing --dry-run preview, read-only-config
+  skip and automatic backup plumbing all apply unchanged. Entries that
+  already pass -y/--yes, or npx with no args (nothing to
+  auto-confirm), are untouched. 113 tests (69 unit + 44 e2e).

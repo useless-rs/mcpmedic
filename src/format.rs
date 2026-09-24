@@ -473,6 +473,32 @@ pub(crate) fn json_raw_issues(
 /// human-readable line for each repair. Only ever adds or normalizes fields
 /// the target tool reads — user data is never removed except `transport`,
 /// which the tool ignores and which is moved into `type`.
+fn fix_npx_yes(name: &str, entry: &mut Value, fixes: &mut Vec<String>) {
+    let Some(obj) = entry.as_object_mut() else {
+        return;
+    };
+    if obj.get("command").and_then(Value::as_str) != Some("npx") {
+        return;
+    }
+    let needs_yes = obj
+        .get("args")
+        .and_then(Value::as_array)
+        .is_some_and(|args| {
+            !args.is_empty()
+                && !args
+                    .iter()
+                    .any(|a| matches!(a.as_str(), Some("-y" | "--yes")))
+        });
+    if needs_yes {
+        if let Some(args) = obj.get_mut("args").and_then(Value::as_array_mut) {
+            args.insert(0, json!("-y"));
+            fixes.push(format!(
+                "server `{name}`: added `-y` to npx — auto-confirms the install prompt instead of hanging"
+            ));
+        }
+    }
+}
+
 pub(crate) fn fix_json_config(tool: ToolId, format: Format, doc: &mut Value) -> Vec<String> {
     let mut fixes = Vec::new();
     let Some(key) = format.servers_key() else {
@@ -482,6 +508,7 @@ pub(crate) fn fix_json_config(tool: ToolId, format: Format, doc: &mut Value) -> 
         return fixes;
     };
     for (name, entry) in servers.iter_mut() {
+        fix_npx_yes(name, entry, &mut fixes);
         let Value::Object(obj) = entry else {
             continue;
         };
@@ -1145,6 +1172,32 @@ mod tests {
                 &BTreeSet::new()
             )
             .is_empty()
+        );
+    }
+
+    #[test]
+    fn fix_adds_npx_yes_flag() {
+        let mut doc = json!({"mcpServers": {
+            "mem": {"command": "npx", "args": ["@modelcontextprotocol/server-memory"]},
+            "safe": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-memory"]},
+            "other": {"command": "uvx", "args": ["mcp-server-fetch"]}
+        }});
+        let fixes = fix_json_config(ToolId::Cursor, Format::McpServers, &mut doc);
+        assert_eq!(fixes.len(), 1, "{fixes:?}");
+        assert!(fixes[0].contains("`mem`"), "{fixes:?}");
+        assert_eq!(doc["mcpServers"]["mem"]["args"][0], "-y");
+        assert_eq!(
+            doc["mcpServers"]["mem"]["args"][1],
+            "@modelcontextprotocol/server-memory"
+        );
+        assert_eq!(doc["mcpServers"]["safe"]["args"][0], "-y");
+        assert_eq!(
+            doc["mcpServers"]["safe"]["args"].as_array().unwrap().len(),
+            2
+        );
+        assert_eq!(
+            doc["mcpServers"]["other"]["args"].as_array().unwrap().len(),
+            1
         );
     }
 

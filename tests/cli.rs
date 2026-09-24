@@ -1232,3 +1232,31 @@ fn preset_add_skips_existing_and_unknown_fails() {
     let out = run(&home, &["preset", "add", "nope", "--to", "claude-code"]);
     assert!(!out.status.success());
 }
+
+#[test]
+fn doctor_fix_inserts_npx_yes_flag() {
+    let home = temp_home("fix-npx-yes");
+    std::fs::write(
+        home.join(".claude.json"),
+        r#"{"mcpServers":{"mem":{"command":"npx","args":["@modelcontextprotocol/server-memory"]}}}"#,
+    )
+    .unwrap();
+
+    let out = run(&home, &["doctor", "--fix", "--dry-run"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("would fix"), "{stdout}");
+    assert!(stdout.contains("-y"), "{stdout}");
+    let raw = std::fs::read_to_string(home.join(".claude.json")).unwrap();
+    assert!(!raw.contains("\"-y\""), "dry-run must not touch the file");
+
+    let out = run(&home, &["doctor", "--fix"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("added `-y` to npx"), "{stdout}");
+    let cfg: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(".claude.json")).unwrap()).unwrap();
+    assert_eq!(cfg["mcpServers"]["mem"]["args"][0], "-y");
+    assert_eq!(
+        cfg["mcpServers"]["mem"]["args"][1],
+        "@modelcontextprotocol/server-memory"
+    );
+}

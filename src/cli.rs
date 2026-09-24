@@ -79,7 +79,7 @@ pub(crate) enum Cmd {
         strict: bool,
 
         /// Apply safe automatic repairs (VS Code `type`, Zed legacy layout,
-        /// remote `type` spellings) before reporting.
+        /// remote `type` spellings, missing `npx -y`) before reporting.
         #[arg(long)]
         fix: bool,
 
