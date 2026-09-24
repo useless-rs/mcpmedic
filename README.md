@@ -254,7 +254,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `completions <shell>` | Print completions for bash, zsh, fish, elvish or powershell |
 | `backup [--tool <t>]` | Manual backup (also automatic before every mutation) |
 | `restore [--tool <t>] [--list] [--latest] [--dry-run]` | Restore configs from automatic backups; the current state is backed up first, so restores are reversible; `--dry-run` (with `--latest`) previews without writing |
-| `summary` | One-line health overview (tools, servers, findings) for shell prompts and CI gates; exits 1 on criticals |
+| `summary [--strict]` | One-line health overview (tools, servers, findings) for shell prompts and CI gates; exits 1 on criticals (`--strict` includes warnings) |
 | `edit <tool> [--print]` | Open a tool's config file in your editor (`$VISUAL` → `$EDITOR`, else vi/notepad); `--print` shows the resolved path instead |
 
 All commands accept `--project <dir>` to operate on repo-checked-in configs
