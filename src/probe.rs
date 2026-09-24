@@ -2,19 +2,24 @@
 //! connect to remote endpoints, with strict timeouts. Zero new dependencies.
 
 use std::collections::BTreeMap;
+use std::io::{BufRead, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::process::Command;
 use std::time::Duration;
 
 use crate::model::Transport;
 
-const STDIO_GRACE_MS: u64 = 500;
+const HANDSHAKE_TIMEOUT_MS: u64 = 3000;
 const TCP_TIMEOUT_SECS: u64 = 3;
 
 /// Result of a reachability probe on one server.
 #[derive(Debug)]
 pub(crate) enum Probe {
-    /// The server started or the endpoint accepted a connection.
+    /// The server completed a full MCP initialize handshake; carries the
+    /// server's reported name and negotiated protocol version.
+    McpOk { server: String, protocol: String },
+    /// The server started or the endpoint accepted a connection, but did
+    /// not complete an MCP handshake.
     Reachable(String),
     /// The process crashed on startup or the TCP connect failed.
     Unreachable(String),
@@ -42,23 +47,107 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
     for (k, v) in env {
         cmd.env(k, v);
     }
-    match cmd.spawn() {
-        Ok(mut child) => {
-            std::thread::sleep(Duration::from_millis(STDIO_GRACE_MS));
-            match child.try_wait() {
-                Ok(Some(status)) => {
-                    Probe::Unreachable(format!("process exited immediately with {status}"))
-                }
-                Ok(None) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    Probe::Reachable("process started".into())
-                }
-                Err(e) => Probe::Unreachable(format!("probe error: {e}")),
+    let mut child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(e) => return Probe::Unreachable(format!("failed to start: {e}")),
+    };
+
+    let stdin = child.stdin.take();
+    if let Some(w) = stdin.as_ref() {
+        let mut w = w;
+        let _ = w.write_all(initialize_message().as_bytes());
+        let _ = w.write_all(b"\n");
+        let _ = w.flush();
+    }
+
+    let stdout = child.stdout.take();
+    let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
+    std::thread::spawn(move || {
+        let _ = tx.send(scan_for_jsonrpc(stdout));
+    });
+
+    let verdict = match rx.recv_timeout(Duration::from_millis(HANDSHAKE_TIMEOUT_MS)) {
+        Ok(Some(line)) => classify_response(&line),
+        Ok(None) => match child.try_wait() {
+            Ok(Some(status)) => Probe::Unreachable(format!(
+                "process exited with {status} before answering MCP initialize"
+            )),
+            _ => Probe::Reachable("closed stdout without an MCP response".into()),
+        },
+        Err(_) => match child.try_wait() {
+            Ok(Some(status)) => Probe::Unreachable(format!(
+                "process exited with {status} before answering MCP initialize"
+            )),
+            _ => Probe::Reachable(
+                "no MCP initialize response within 3s (slow startup is common)".into(),
+            ),
+        },
+    };
+    drop(stdin);
+    let _ = child.kill();
+    let _ = child.wait();
+    verdict
+}
+
+fn initialize_message() -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-11-25",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "mcpmedic",
+                "version": env!("CARGO_PKG_VERSION")
             }
         }
-        Err(e) => Probe::Unreachable(format!("failed to start: {e}")),
+    })
+    .to_string()
+}
+
+fn is_jsonrpc_message(line: &str) -> bool {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+        return false;
+    };
+    v.get("jsonrpc").is_some() && (v.get("result").is_some() || v.get("error").is_some())
+}
+
+fn scan_for_jsonrpc(stdout: Option<std::process::ChildStdout>) -> Option<String> {
+    let out = stdout?;
+    for line in std::io::BufReader::new(out).lines() {
+        let Ok(line) = line else { return None };
+        if is_jsonrpc_message(&line) {
+            return Some(line);
+        }
     }
+    None
+}
+
+fn classify_response(line: &str) -> Probe {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+        return Probe::Reachable("replied with non-JSON output".into());
+    };
+    if let Some(name) = v
+        .pointer("/result/serverInfo/name")
+        .and_then(serde_json::Value::as_str)
+    {
+        let protocol = v
+            .pointer("/result/protocolVersion")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown");
+        return Probe::McpOk {
+            server: name.to_string(),
+            protocol: protocol.to_string(),
+        };
+    }
+    if let Some(err) = v
+        .pointer("/error/message")
+        .and_then(serde_json::Value::as_str)
+    {
+        return Probe::Reachable(format!("MCP error: {err}"));
+    }
+    Probe::Reachable("replied, but without an MCP initialize result".into())
 }
 
 fn probe_remote(url: &str) -> Probe {
@@ -105,14 +194,68 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stdio_probe_starts_and_kills_sh() {
+    fn stdio_probe_reports_silent_runner() {
         let transport = Transport::Stdio {
             command: "sh".into(),
-            args: vec![],
+            args: vec!["-c".into(), "sleep 5".into()],
             env: BTreeMap::new(),
         };
         match probe_transport(&transport) {
-            Probe::Reachable(msg) => assert!(msg.contains("started"), "{msg}"),
+            Probe::Reachable(msg) => {
+                assert!(msg.contains("no MCP initialize response"), "{msg}");
+            }
+            other => panic!("expected Reachable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stdio_handshake_verifies_mcp_response() {
+        let resp = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"mock","version":"1.0"}}}"#;
+        let transport = Transport::Stdio {
+            command: "sh".into(),
+            args: vec!["-c".into(), format!("read line; printf '%s\\n' '{resp}'")],
+            env: BTreeMap::new(),
+        };
+        match probe_transport(&transport) {
+            Probe::McpOk { server, protocol } => {
+                assert_eq!(server, "mock");
+                assert_eq!(protocol, "2025-11-25");
+            }
+            other => panic!("expected McpOk, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stdio_handshake_skips_banner_lines() {
+        let resp = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"banner","version":"1.0"}}}"#;
+        let transport = Transport::Stdio {
+            command: "sh".into(),
+            args: vec![
+                "-c".into(),
+                format!("read line; echo 'starting up...'; printf '%s\\n' '{resp}'"),
+            ],
+            env: BTreeMap::new(),
+        };
+        match probe_transport(&transport) {
+            Probe::McpOk { server, .. } => assert_eq!(server, "banner"),
+            other => panic!("expected McpOk, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stdio_handshake_reports_jsonrpc_error() {
+        let transport = Transport::Stdio {
+            command: "sh".into(),
+            args: vec![
+                "-c".into(),
+                r#"read line; printf '%s
+' '{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"boom"}}'"#
+                    .into(),
+            ],
+            env: BTreeMap::new(),
+        };
+        match probe_transport(&transport) {
+            Probe::Reachable(msg) => assert!(msg.contains("boom"), "{msg}"),
             other => panic!("expected Reachable, got {other:?}"),
         }
     }

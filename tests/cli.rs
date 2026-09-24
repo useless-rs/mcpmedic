@@ -1127,3 +1127,25 @@ fn init_json_reports_source_without_touching_files() {
         "json mode must not touch files"
     );
 }
+
+#[test]
+fn doctor_probe_reports_mcp_handshake() {
+    let home = temp_home("probe-handshake");
+    let resp = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"mock-mcp","version":"1.0"}}}"#;
+    let script = format!("read line; printf '%s\\n' '{resp}'");
+    let cfg = format!(
+        r#"{{"mcpServers":{{"mock":{{"command":"sh","args":["-c",{}]}},"broken":{{"command":"definitely-missing-cmd-xyz","args":[]}}}}}}"#,
+        serde_json::to_string(&script).unwrap()
+    );
+    std::fs::write(home.join(".claude.json"), cfg).unwrap();
+    let out = run(&home, &["--json", "doctor", "--probe"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("MCP handshake ok") && stdout.contains("mock-mcp"),
+        "handshake result missing: {stdout}"
+    );
+    assert!(
+        stdout.contains("definitely-missing-cmd-xyz") || stdout.contains("unreachable"),
+        "unreachable finding missing: {stdout}"
+    );
+}

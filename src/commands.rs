@@ -649,6 +649,10 @@ fn cmd_doctor(
             };
             for (name, transport) in &cfg.servers {
                 let (severity, message) = match crate::probe::probe_transport(transport) {
+                    crate::probe::Probe::McpOk { server, protocol } => (
+                        Severity::Info,
+                        format!("probe: MCP handshake ok — `{server}` speaks protocol {protocol}"),
+                    ),
                     crate::probe::Probe::Reachable(reason) => {
                         (Severity::Info, format!("probe: {reason}"))
                     }

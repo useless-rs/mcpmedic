@@ -295,3 +295,15 @@ One line per improvement cycle: date, what changed, why.
   pick the richest source, sync to every installed tool). 5-platform
   binaries (linux amd64/arm64, macOS amd64/arm64, Windows x86_64),
   Homebrew tap updated with v0.5.0 sha256 hashes. 96 tests.
+- **2026-09-24 · cycle 28 — doctor --probe speaks MCP.** The stdio
+  probe now performs a real MCP JSON-RPC initialize handshake: spawn,
+  write a spec-conformant NDJSON initialize request (protocolVersion
+  2025-11-25, clientInfo mcpmedic + CARGO_PKG_VERSION), scan stdout
+  for the first JSON-RPC message (banner lines skipped), and verify
+  the reply carries result.serverInfo + protocolVersion. A successful
+  handshake reports the server's own identity: "probe: MCP handshake
+  ok — `mock` speaks protocol 2025-11-25". Silent-but-running servers
+  stay Info, not false criticals (npx startup can take seconds; 3s
+  handshake timeout). JSON-RPC error replies and non-NDJSON stdout
+  fall back to reachable-with-reason. Remotes keep TCP connect. Zero
+  new dependencies. 100 tests (61 unit + 39 e2e).

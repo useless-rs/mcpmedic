@@ -66,7 +66,8 @@ pub(crate) enum Cmd {
     },
 
     /// Health-check all configs: broken JSON, dead commands, drift, bloat.
-    /// Pass --probe to also verify each server is reachable.
+    /// Pass --probe to verify each server responds (real MCP initialize
+    /// handshake for stdio servers, TCP connect for remotes).
     Doctor {
         /// Only check this tool (id or display name).
         #[arg(long)]
@@ -85,8 +86,8 @@ pub(crate) enum Cmd {
         #[arg(long, requires = "fix")]
         dry_run: bool,
 
-        /// Probe each server's reachability: spawn stdio processes briefly
-        /// (500 ms), TCP-connect to remote endpoints (3 s timeout).
+        /// Probe each server: stdio servers get a real MCP initialize
+        /// handshake (3 s timeout); remote endpoints get a TCP connect.
         #[arg(long)]
         probe: bool,
     },
