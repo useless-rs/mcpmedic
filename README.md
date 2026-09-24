@@ -77,7 +77,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **113 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 18 tools
+- ✅ **113 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 21 tools
 
 ## Supported tools
 
@@ -101,6 +101,9 @@ doesn't own, always atomically, always with an automatic backup first.
 | LM Studio | `~/.lmstudio/mcp.json` → `mcpServers` | JSON | ✅ |
 | Continue | `~/.continue/mcpServers/mcp.json` → `mcpServers` (JSON drop-in) | JSON | ✅ |
 | GitHub Copilot CLI | `~/.copilot/mcp-config.json` → `mcpServers`; project `.github/mcp.json` | JSON | ✅ |
+| Kimi Code | `~/.kimi-code/mcp.json` → `mcpServers`; project `.kimi-code/mcp.json` | JSON | ✅ |
+| Qwen Code | `~/.qwen/settings.json` → `mcpServers` (`httpUrl` for HTTP remotes); project `.qwen/settings.json` | JSON | ✅ |
+| Auggie | `~/.augment/settings.json` → `mcpServers` | JSON | ✅ |
 
 Claude Code's `CLAUDE_CONFIG_DIR` and Codex's `CODEX_HOME` environment
 overrides are respected. Point `HOME`/`USERPROFILE` at another machine's home

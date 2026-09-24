@@ -27,6 +27,9 @@ pub(crate) enum ToolId {
     LmStudio,
     Continue,
     Copilot,
+    KimiCode,
+    QwenCode,
+    Auggie,
 }
 
 impl ToolId {
@@ -51,6 +54,9 @@ impl ToolId {
             Self::LmStudio => "lm-studio",
             Self::Continue => "continue",
             Self::Copilot => "copilot",
+            Self::KimiCode => "kimi-code",
+            Self::QwenCode => "qwen-code",
+            Self::Auggie => "auggie",
         }
     }
 }
@@ -347,6 +353,36 @@ static REGISTRY: &[ToolSpec] = &[
         project_path: Some(|project| project.join(".github").join("mcp.json")),
         path: |home, _| home.join(".copilot").join("mcp-config.json"),
     },
+    ToolSpec {
+        id: ToolId::KimiCode,
+        display: "Kimi Code",
+        format: Format::McpServers,
+        writable: true,
+        disable: Some(DisableFlag {
+            key: "enabled",
+            off_when: false,
+        }),
+        project_path: Some(|project| project.join(".kimi-code").join("mcp.json")),
+        path: |home, _| home.join(".kimi-code").join("mcp.json"),
+    },
+    ToolSpec {
+        id: ToolId::QwenCode,
+        display: "Qwen Code",
+        format: Format::McpServers,
+        writable: true,
+        disable: None,
+        project_path: Some(|project| project.join(".qwen").join("settings.json")),
+        path: |home, _| home.join(".qwen").join("settings.json"),
+    },
+    ToolSpec {
+        id: ToolId::Auggie,
+        display: "Auggie",
+        format: Format::McpServers,
+        writable: true,
+        disable: None,
+        project_path: None,
+        path: |home, _| home.join(".augment").join("settings.json"),
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -387,7 +423,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 18);
+        assert_eq!(registry().len(), 21);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }
@@ -416,6 +452,11 @@ mod tests {
             "disabled"
         );
         assert!(by_id(ToolId::Kiro).disable.as_ref().unwrap().off_when);
+        assert_eq!(
+            by_id(ToolId::KimiCode).disable.as_ref().unwrap().key,
+            "enabled"
+        );
+        assert!(!by_id(ToolId::KimiCode).disable.as_ref().unwrap().off_when);
         for id in [
             ToolId::Cursor,
             ToolId::ClaudeCode,
@@ -427,6 +468,11 @@ mod tests {
             ToolId::Warp,
             ToolId::Trae,
             ToolId::Antigravity,
+            ToolId::LmStudio,
+            ToolId::Continue,
+            ToolId::Copilot,
+            ToolId::QwenCode,
+            ToolId::Auggie,
         ] {
             assert!(
                 by_id(id).disable.is_none(),
@@ -479,6 +525,14 @@ mod tests {
         assert_eq!(
             project_of(ToolId::Copilot),
             PathBuf::from("/repo/.github/mcp.json")
+        );
+        assert_eq!(
+            project_of(ToolId::KimiCode),
+            PathBuf::from("/repo/.kimi-code/mcp.json")
+        );
+        assert_eq!(
+            project_of(ToolId::QwenCode),
+            PathBuf::from("/repo/.qwen/settings.json")
         );
         for id in [
             ToolId::ClaudeDesktop,

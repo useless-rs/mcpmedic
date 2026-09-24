@@ -411,3 +411,16 @@ One line per improvement cycle: date, what changed, why.
   documented disable flag → none. README stats line also refreshed
   (92 → 113 tests, stale since cycle 23). 113 tests (69 unit +
   44 e2e).
+- **2026-09-24 · cycle 38 — Kimi Code, Qwen Code and Auggie added
+  (21 tools).** Three new agents, all verified against first-party
+  docs: Kimi Code (~/.kimi-code/mcp.json, standard mcpServers, an
+  `enabled: false` disable flag like Codex/Zed, project
+  .kimi-code/mcp.json, plain-url remotes like Cursor); Qwen Code
+  (~/.qwen/settings.json, Gemini-style `httpUrl` dialect for HTTP
+  remotes, project .qwen/settings.json); and Auggie — Augment Code's
+  CLI (~/.augment/settings.json, standard mcpServers with
+  type:http+url remotes, matching the existing catch-all write arm).
+  The remote-write dialect match gained Qwen Code (httpUrl) and
+  Kimi Code (plain url); the registry tests gained entries, and the
+  disable negative list now covers every flagless tool including
+  Continue, LM Studio and Copilot. 113 tests (69 unit + 44 e2e).

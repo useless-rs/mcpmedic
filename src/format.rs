@@ -226,8 +226,8 @@ fn string_array(v: Option<&Value>) -> Vec<String> {
 ///
 /// Remote entries are rendered in each tool's documented dialect: the Claude
 /// tools key on `type: "http"`, Roo Code on the literal `streamable-http`,
-/// Cline on `streamableHttp`, Gemini CLI on its `httpUrl` field, Windsurf on
-/// `serverUrl`, and Cursor/Zed on a plain `url` with the transport inferred.
+/// Cline on `streamableHttp`, Gemini CLI and Qwen Code on their `httpUrl` field, Windsurf on
+/// `serverUrl`, and Cursor, Kimi Code and Zed on a plain `url` with the transport inferred.
 pub(crate) fn build_json_entry(format: Format, tool: ToolId, transport: &Transport) -> Value {
     let mut entry = Map::new();
     match transport {
@@ -253,13 +253,13 @@ pub(crate) fn build_json_entry(format: Format, tool: ToolId, transport: &Transpo
                     entry.insert("type".into(), json!("streamableHttp"));
                     entry.insert("url".into(), json!(url));
                 }
-                (Format::McpServers, ToolId::GeminiCli) => {
+                (Format::McpServers, ToolId::GeminiCli | ToolId::QwenCode) => {
                     entry.insert("httpUrl".into(), json!(url));
                 }
                 (Format::McpServers, ToolId::Windsurf | ToolId::Antigravity) => {
                     entry.insert("serverUrl".into(), json!(url));
                 }
-                (Format::McpServers, ToolId::Cursor) => {
+                (Format::McpServers, ToolId::Cursor | ToolId::KimiCode) => {
                     entry.insert("url".into(), json!(url));
                 }
                 (Format::McpServers | Format::Vscode, _) => {
