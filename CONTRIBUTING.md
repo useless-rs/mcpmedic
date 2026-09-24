@@ -571,3 +571,17 @@ One line per improvement cycle: date, what changed, why.
   DiscoverResult and -32022 outcomes; the e2e gained a modern mock
   server. Total legacy-server probe overhead: +1s (the discover
   budget). 120 tests (74 unit + 46 e2e).
+- **2026-09-24 · cycle 50 — modern tools/list query.** After a
+  successful DiscoverResult, the probe now sends a modern-era
+  tools/list request (id 2, per-request _meta carrying the
+  required io.modelcontextprotocol/protocolVersion +
+  clientCapabilities + clientInfo fields per the 2026-07-28 spec)
+  so modern servers report their tool count just like legacy
+  ones: "probe: modern MCP — `X` supports protocol 2026-07-28
+  (server/discover), exposes 3 tool(s)". ModernOk gained a tools
+  field; classify_discover returns the parsed data and probe_stdio
+  builds the final outcome after the tools query. The -32022 path
+  degrades gracefully (the rejected tools/list maps to tools:
+  None). The tools_count_from_response matcher (id == 2 +
+  /result/tools) serves both eras unchanged. 120 tests (74 unit +
+  46 e2e).

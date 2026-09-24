@@ -29,10 +29,13 @@ pub(crate) enum Probe {
         tools: Option<usize>,
     },
     /// A modern (2026-07-28-era) server answered `server/discover`;
-    /// carries its reported name and supported protocol versions.
+    /// carries its reported name, supported protocol versions, and —
+    /// when the modern tools/list round trip also succeeded — exposed
+    /// tool count.
     ModernOk {
         server: String,
         versions: Vec<String>,
+        tools: Option<usize>,
     },
     /// The server started or the endpoint accepted a connection, but did
     /// not complete an MCP handshake.
@@ -111,7 +114,14 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
 
     let verdict = match rx.recv_timeout(Duration::from_millis(DISCOVER_TIMEOUT_MS)) {
         Ok(Some(line)) => match classify_discover(&line) {
-            DiscoverOutcome::Modern(probe) => probe,
+            DiscoverOutcome::Modern { server, versions } => {
+                let tools = fetch_modern_tool_count(&mut stdin, &rx);
+                Probe::ModernOk {
+                    server,
+                    versions,
+                    tools,
+                }
+            }
             DiscoverOutcome::Legacy => {
                 send_legacy_initialize(&mut stdin);
                 legacy_handshake_phase(&mut stdin, &rx, &mut child, &err_rx)
@@ -151,7 +161,10 @@ fn try_wait_bounded(
 }
 
 enum DiscoverOutcome {
-    Modern(Probe),
+    Modern {
+        server: String,
+        versions: Vec<String>,
+    },
     Legacy,
 }
 
@@ -172,7 +185,7 @@ fn classify_discover(line: &str) -> DiscoverOutcome {
             .and_then(serde_json::Value::as_str)
             .unwrap_or("unknown")
             .to_string();
-        return DiscoverOutcome::Modern(Probe::ModernOk { server, versions });
+        return DiscoverOutcome::Modern { server, versions };
     }
     if v.pointer("/error/code").and_then(serde_json::Value::as_i64) == Some(-32022) {
         let versions: Vec<String> = v
@@ -184,12 +197,56 @@ fn classify_discover(line: &str) -> DiscoverOutcome {
                     .collect()
             })
             .unwrap_or_default();
-        return DiscoverOutcome::Modern(Probe::ModernOk {
+        return DiscoverOutcome::Modern {
             server: "unknown".into(),
             versions,
-        });
+        };
     }
     DiscoverOutcome::Legacy
+}
+
+fn fetch_modern_tool_count(
+    stdin: &mut Option<std::process::ChildStdin>,
+    rx: &std::sync::mpsc::Receiver<Option<String>>,
+) -> Option<usize> {
+    let w = stdin.as_mut()?;
+    let _ = w.write_all(modern_tools_list_message().as_bytes());
+    let _ = w.write_all(b"\n");
+    let _ = w.flush();
+    let deadline = std::time::Instant::now() + Duration::from_millis(TOOLS_TIMEOUT_MS);
+    loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            return None;
+        }
+        match rx.recv_timeout(remaining) {
+            Ok(Some(line)) => match tools_count_from_response(&line) {
+                ToolsReply::Count(count) => return Some(count),
+                ToolsReply::Unknown => return None,
+                ToolsReply::NotIt => {}
+            },
+            _ => return None,
+        }
+    }
+}
+
+fn modern_tools_list_message() -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list",
+        "params": {
+            "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientInfo": {
+                    "name": "mcpmedic",
+                    "version": env!("CARGO_PKG_VERSION")
+                },
+                "io.modelcontextprotocol/clientCapabilities": {}
+            }
+        }
+    })
+    .to_string()
 }
 
 fn discover_message() -> String {
@@ -535,18 +592,26 @@ mod tests {
     #[test]
     fn stdio_discover_reports_modern_server() {
         let discover_result = r#"{"jsonrpc":"2.0","id":1,"result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"tools":{}},"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"ExampleServer","version":"1.0.0"}}}}"#;
+        let tools = r#"{"jsonrpc":"2.0","id":2,"result":{"resultType":"complete","tools":[{"name":"a"},{"name":"b"},{"name":"c"}]}}"#;
         let transport = Transport::Stdio {
             command: "sh".into(),
             args: vec![
                 "-c".into(),
-                format!("read a; printf '%s\\n' '{discover_result}'"),
+                format!(
+                    "read a; printf '%s\\n' '{discover_result}'; read b; printf '%s\\n' '{tools}'"
+                ),
             ],
             env: BTreeMap::new(),
         };
         match probe_transport(&transport) {
-            Probe::ModernOk { server, versions } => {
+            Probe::ModernOk {
+                server,
+                versions,
+                tools,
+            } => {
                 assert_eq!(server, "ExampleServer");
                 assert_eq!(versions, vec!["2026-07-28".to_string()]);
+                assert_eq!(tools, Some(3));
             }
             other => panic!("expected ModernOk, got {other:?}"),
         }
@@ -561,10 +626,15 @@ mod tests {
             env: BTreeMap::new(),
         };
         match probe_transport(&transport) {
-            Probe::ModernOk { server, versions } => {
+            Probe::ModernOk {
+                server,
+                versions,
+                tools,
+            } => {
                 assert_eq!(server, "unknown");
                 assert_eq!(versions.len(), 2);
                 assert!(versions.contains(&"2026-07-28".to_string()));
+                assert_eq!(tools, None);
             }
             other => panic!("expected ModernOk, got {other:?}"),
         }

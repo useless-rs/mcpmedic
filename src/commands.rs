@@ -723,12 +723,19 @@ fn probe_findings(loads: &[ToolLoad]) -> Vec<doctor::Finding> {
                                 ),
                             )
                         }
-                        crate::probe::Probe::ModernOk { server, versions } => {
+                        crate::probe::Probe::ModernOk {
+                            server,
+                            versions,
+                            tools,
+                        } => {
                             let versions_list = versions.join(", ");
+                            let tools_note = tools.map_or(String::new(), |n| {
+                                format!(", exposes {n} tool(s)")
+                            });
                             (
                                 Severity::Info,
                                 format!(
-                                    "probe: modern MCP — `{server}` supports protocol {versions_list} (server/discover)"
+                                    "probe: modern MCP — `{server}` supports protocol {versions_list} (server/discover){tools_note}"
                                 ),
                             )
                         }

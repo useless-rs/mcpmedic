@@ -1152,7 +1152,10 @@ fn doctor_probe_reports_mcp_handshake() {
         "read a; printf '%s\\n' '{legacy_err}'; read b; printf '%s\\n' '{init}'; read c; read d; printf '%s\\n' '{tools}'"
     );
     let discover_result = r#"{"jsonrpc":"2.0","id":1,"result":{"supportedVersions":["2026-07-28"],"capabilities":{"tools":{}},"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"modern-srv","version":"1.0"}}}}"#;
-    let modern_script = format!("read a; printf '%s\\n' '{discover_result}'");
+    let modern_tools = r#"{"jsonrpc":"2.0","id":2,"result":{"resultType":"complete","tools":[{"name":"x"},{"name":"y"},{"name":"z"}]}}"#;
+    let modern_script = format!(
+        "read a; printf '%s\\n' '{discover_result}'; read b; printf '%s\\n' '{modern_tools}'"
+    );
     let cfg = format!(
         r#"{{"mcpServers":{{"mock":{{"command":"sh","args":["-c",{}]}},"modern":{{"command":"sh","args":["-c",{}]}},"broken":{{"command":"definitely-missing-cmd-xyz","args":[]}},"noisy":{{"command":"sh","args":["-c","echo boom detail >&2; exit 1"]}}}}}}"#,
         serde_json::to_string(&script).unwrap(),
@@ -1176,6 +1179,10 @@ fn doctor_probe_reports_mcp_handshake() {
     assert!(
         stdout.contains("modern-srv"),
         "modern server missing: {stdout}"
+    );
+    assert!(
+        stdout.contains("exposes 3 tool"),
+        "modern tool count missing: {stdout}"
     );
     assert!(
         stdout.contains("definitely-missing-cmd-xyz") || stdout.contains("unreachable"),
