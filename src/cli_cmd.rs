@@ -239,7 +239,11 @@ pub(crate) enum Cmd {
     },
 
     /// One-line health overview (tools, servers, findings) for shell prompts and CI gates.
-    Summary,
+    Summary {
+        /// Also fail on warnings, not just critical findings.
+        #[arg(long)]
+        strict: bool,
+    },
 
     /// Generate shell completions to stdout (bash, zsh, fish, elvish, powershell).
     Completions {

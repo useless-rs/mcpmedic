@@ -92,7 +92,7 @@ pub(crate) fn cmd_init(ctx: &Ctx) -> ExitCode {
     code
 }
 
-pub(crate) fn cmd_summary(ctx: &Ctx) -> ExitCode {
+pub(crate) fn cmd_summary(ctx: &Ctx, strict: bool) -> ExitCode {
     let mut configured = 0;
     let mut total_servers = 0;
     let mut parked = 0;
@@ -133,7 +133,7 @@ pub(crate) fn cmd_summary(ctx: &Ctx) -> ExitCode {
             "warnings": warnings,
             "healthy": critical == 0,
         }));
-        return if critical > 0 {
+        return if critical > 0 || (strict && warnings > 0) {
             ExitCode::from(1)
         } else {
             ExitCode::SUCCESS
@@ -149,7 +149,7 @@ pub(crate) fn cmd_summary(ctx: &Ctx) -> ExitCode {
         critical,
         warnings
     );
-    if critical > 0 {
+    if critical > 0 || (strict && warnings > 0) {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS

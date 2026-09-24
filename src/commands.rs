@@ -107,7 +107,7 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
             dry_run,
         } => cmd_restore(&ctx, tool.as_deref(), list, latest, dry_run),
         Cmd::Audit { tool, strict } => cmd_audit(&ctx, tool.as_deref(), strict),
-        Cmd::Summary => cmd_summary(&ctx),
+        Cmd::Summary { strict } => cmd_summary(&ctx, strict),
         Cmd::Completions { shell } => cmd_completions(shell),
     }
 }

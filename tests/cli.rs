@@ -1606,6 +1606,16 @@ fn restore_dry_run_touches_nothing() {
 }
 
 #[test]
+fn summary_strict_fails_on_warnings() {
+    let home = sample_home("summary-strict");
+    let lax = run(&home, &["summary"]);
+    assert!(lax.status.success(), "stderr: {}", stderr(&lax));
+    let strict = run(&home, &["summary", "--strict"]);
+    assert_eq!(strict.status.code(), Some(1), "stdout: {}", stdout(&strict));
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 #[cfg(unix)]
 fn audit_strict_fails_on_permission_warnings() {
     use std::os::unix::fs::PermissionsExt;
