@@ -19,7 +19,7 @@ pub(crate) fn parse_yaml(source: &str) -> Result<Value, String> {
         return Ok(Value::Object(Map::new()));
     }
     let mut idx = 0;
-    let value = parse_node(&lines, &mut idx, lines[0].0)?;
+    let value = parse_node(&lines, &mut idx, lines[0].0, 0)?;
     if idx != lines.len() {
         let (_, content, ln) = lines[idx];
         return Err(format!(
@@ -100,11 +100,24 @@ fn is_dash(content: &str) -> bool {
 
 /// Parse the node starting at `lines[*idx]`, whose first line sits at
 /// column `indent`.
-fn parse_node(lines: &[Line<'_>], idx: &mut usize, indent: usize) -> Result<Value, String> {
+/// Block nesting beyond this is rejected instead of recursing: real MCP
+/// configs nest 3-4 levels deep, so anything past the cap is either hostile
+/// or broken — and unbounded recursion would overflow the stack.
+const MAX_DEPTH: usize = 64;
+
+fn parse_node(
+    lines: &[Line<'_>],
+    idx: &mut usize,
+    indent: usize,
+    depth: usize,
+) -> Result<Value, String> {
+    if depth >= MAX_DEPTH {
+        return Err("yaml: nesting too deep (limit 64)".to_owned());
+    }
     if is_dash(lines[*idx].1) {
-        parse_sequence(lines, idx, indent)
+        parse_sequence(lines, idx, indent, depth)
     } else {
-        parse_mapping(lines, idx, indent, None)
+        parse_mapping(lines, idx, indent, None, depth)
     }
 }
 
@@ -116,6 +129,7 @@ fn parse_mapping(
     idx: &mut usize,
     indent: usize,
     seed: Option<(String, Value)>,
+    depth: usize,
 ) -> Result<Value, String> {
     let mut map = Map::new();
     if let Some((k, v)) = seed {
@@ -133,7 +147,7 @@ fn parse_mapping(
             .ok_or_else(|| format!("yaml: expected `key: value` at line {ln}"))?;
         let key = key_string(k_text, ln)?;
         *idx += 1;
-        let val = parse_value_after_key(lines, idx, indent, rest)?;
+        let val = parse_value_after_key(lines, idx, indent, rest, depth)?;
         if map.insert(key, val).is_some() {
             return Err(format!("yaml: duplicate key at line {ln}"));
         }
@@ -142,7 +156,12 @@ fn parse_mapping(
 }
 
 /// Parse a block sequence whose `-` markers sit at column `indent`.
-fn parse_sequence(lines: &[Line<'_>], idx: &mut usize, indent: usize) -> Result<Value, String> {
+fn parse_sequence(
+    lines: &[Line<'_>],
+    idx: &mut usize,
+    indent: usize,
+    depth: usize,
+) -> Result<Value, String> {
     let mut arr = Vec::new();
     while *idx < lines.len() {
         let (li, content, _) = lines[*idx];
@@ -153,7 +172,7 @@ fn parse_sequence(lines: &[Line<'_>], idx: &mut usize, indent: usize) -> Result<
         *idx += 1;
         if item.is_empty() {
             if *idx < lines.len() && lines[*idx].0 > indent {
-                arr.push(parse_node(lines, idx, lines[*idx].0)?);
+                arr.push(parse_node(lines, idx, lines[*idx].0, depth + 1)?);
             } else {
                 arr.push(Value::Null);
             }
@@ -161,8 +180,14 @@ fn parse_sequence(lines: &[Line<'_>], idx: &mut usize, indent: usize) -> Result<
             let item_indent = indent + 2;
             let ln = lines[*idx - 1].2;
             let key = key_string(k_text, ln)?;
-            let val = parse_value_after_key(lines, idx, item_indent, rest)?;
-            arr.push(parse_mapping(lines, idx, item_indent, Some((key, val)))?);
+            let val = parse_value_after_key(lines, idx, item_indent, rest, depth)?;
+            arr.push(parse_mapping(
+                lines,
+                idx,
+                item_indent,
+                Some((key, val)),
+                depth,
+            )?);
         } else {
             arr.push(parse_inline(item)?);
         }
@@ -177,15 +202,16 @@ fn parse_value_after_key(
     idx: &mut usize,
     key_indent: usize,
     rest: &str,
+    depth: usize,
 ) -> Result<Value, String> {
     if !rest.is_empty() {
         return parse_inline(rest);
     }
     if *idx < lines.len() && lines[*idx].0 > key_indent {
-        return parse_node(lines, idx, lines[*idx].0);
+        return parse_node(lines, idx, lines[*idx].0, depth + 1);
     }
     if *idx < lines.len() && lines[*idx].0 == key_indent && is_dash(lines[*idx].1) {
-        return parse_sequence(lines, idx, key_indent);
+        return parse_sequence(lines, idx, key_indent, depth);
     }
     Ok(Value::Null)
 }
@@ -584,5 +610,18 @@ mcpServers:
             "scalar where mapping expected"
         );
         assert!(parse_yaml("a: 1\na: 2\n").is_err(), "duplicate key");
+    }
+
+    #[test]
+    fn rejects_pathological_nesting() {
+        let mut doc = String::new();
+        for i in 0..200 {
+            doc.push_str(&" ".repeat(i * 2));
+            doc.push_str("k:\n");
+        }
+        doc.push_str(&" ".repeat(400));
+        doc.push_str("v: 1\n");
+        let err = parse_yaml(&doc).expect_err("200-deep nesting must fail");
+        assert!(err.contains("too deep"), "{err}");
     }
 }
