@@ -1,6 +1,6 @@
 //! Per-format (de)serialization. Every tool's config is normalized into
-//! [`model::Transport`] for reading, and rendered back into the tool's own
-//! dialect for writing — never the other way around.
+//! [`crate::model::Transport`] for reading, and rendered back into the
+//! tool's own dialect for writing — never the other way around.
 
 use std::collections::BTreeMap;
 
