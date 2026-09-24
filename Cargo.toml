@@ -16,7 +16,7 @@ clap = { version = "4.5", features = ["derive"] }
 clap_complete = "4"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-toml_edit = "0.22"
+toml_edit = "0.25"
 dirs = "7"
 colored = "3"
 thiserror = "2"
