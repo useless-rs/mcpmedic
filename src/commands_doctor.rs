@@ -12,6 +12,7 @@ use crate::commands_probe::probe_findings;
 use crate::diff;
 use crate::doctor::{self, Severity, ToolLoad};
 use crate::format_fix;
+use crate::format_toml;
 use crate::model::Servers;
 use crate::registry::ToolSpec;
 use crate::report;
@@ -265,6 +266,10 @@ fn apply_repairs(
         let ConfigState::Loaded(cfg) = &mut load.state else {
             continue;
         };
+        if matches!(cfg.raw, RawDoc::Toml(_)) {
+            printed |= apply_toml_repairs(ctx, spec, cfg, dry_run)?;
+            continue;
+        }
         let RawDoc::Json(doc) = &mut cfg.raw else {
             continue;
         };
@@ -303,6 +308,39 @@ fn apply_repairs(
         printed = true;
     }
     Ok(printed)
+}
+
+/// Apply safe repairs to a loaded Codex TOML config. Returns whether
+/// anything was printed, or an error if persisting failed.
+fn apply_toml_repairs(
+    ctx: &Ctx,
+    spec: &ToolSpec,
+    cfg: &mut crate::store::LoadedConfig,
+    dry_run: bool,
+) -> Result<bool, String> {
+    let RawDoc::Toml(doc) = &mut cfg.raw else {
+        return Ok(false);
+    };
+    if dry_run {
+        let mut preview = doc.clone();
+        let mut printed = false;
+        for repair in format_toml::fix_toml_config(&mut preview) {
+            println!("  ✚ would fix — {repair}");
+            printed = true;
+        }
+        return Ok(printed);
+    }
+    let fixes = format_toml::fix_toml_config(doc);
+    if fixes.is_empty() {
+        return Ok(false);
+    }
+    for repair in &fixes {
+        println!("  ✚ fixed — {repair}");
+    }
+    if let Some(backup) = commit(ctx, spec, &cfg.raw, false)? {
+        println!("      backup: {}", backup.display());
+    }
+    Ok(true)
 }
 
 fn severity_label(severity: Severity) -> &'static str {

@@ -1604,3 +1604,23 @@ fn restore_dry_run_touches_nothing() {
     assert!(after.contains("tmp-srv"), "added server must survive plan");
     let _ = std::fs::remove_dir_all(&home);
 }
+
+#[test]
+fn doctor_fix_repairs_codex_toml_npx_yes() {
+    let home = temp_home("fix-toml-npx");
+    write(
+        &home,
+        ".codex/config.toml",
+        "[mcp_servers.mem]\ncommand = \"npx\"\nargs = [\"@modelcontextprotocol/server-memory\"]\n",
+    );
+    let out = run(&home, &["doctor", "--fix", "--tool", "codex"]);
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+    assert!(
+        stdout(&out).contains("added `-y` to npx"),
+        "got: {}",
+        stdout(&out)
+    );
+    let raw = std::fs::read_to_string(home.join(".codex/config.toml")).unwrap();
+    assert!(raw.contains("\"-y\""), "{raw}");
+    let _ = std::fs::remove_dir_all(&home);
+}

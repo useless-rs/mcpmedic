@@ -202,3 +202,79 @@ pub(crate) fn set_toml_disabled(
         _ => Err(format!("server `{name}`: entry is not a table")),
     }
 }
+
+/// Apply provably safe repairs to a Codex `config.toml` document, in place:
+/// insert missing `npx -y`. Returns a human-readable line per repair.
+pub(crate) fn fix_toml_config(doc: &mut DocumentMut) -> Vec<String> {
+    let mut fixes = Vec::new();
+    let Some(item) = doc.get_mut("mcp_servers") else {
+        return fixes;
+    };
+    let Some(table) = table_like_mut(item) else {
+        return fixes;
+    };
+    for (name, entry) in table.iter_mut() {
+        let table = match entry {
+            Item::Table(t) => t as &mut dyn TableLike,
+            Item::Value(TomlValue::InlineTable(t)) => t as &mut dyn TableLike,
+            _ => continue,
+        };
+        let is_npx = table
+            .get("command")
+            .and_then(|i| i.as_value())
+            .and_then(TomlValue::as_str)
+            == Some("npx");
+        if !is_npx {
+            continue;
+        }
+        let Some(args) = table
+            .get_mut("args")
+            .and_then(|i| i.as_value_mut())
+            .and_then(TomlValue::as_array_mut)
+        else {
+            continue;
+        };
+        let has_yes = args
+            .iter()
+            .any(|a| matches!(a.as_str(), Some("-y" | "--yes")));
+        if !args.is_empty() && !has_yes {
+            args.insert(0, "-y");
+            fixes.push(format!(
+                "server `{name}`: added `-y` to npx — auto-confirms the install prompt instead of hanging"
+            ));
+        }
+    }
+    fixes
+}
+
+fn table_like_mut(item: &mut Item) -> Option<&mut dyn TableLike> {
+    match item {
+        Item::Table(t) => Some(t),
+        Item::Value(TomlValue::InlineTable(t)) => Some(t),
+        Item::None | Item::Value(_) | Item::ArrayOfTables(_) => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fix_inserts_missing_npx_yes() {
+        let mut doc: DocumentMut = "[mcp_servers.svc]\ncommand = \"npx\"\nargs = [\"pkg\"]\n"
+            .parse()
+            .unwrap();
+        let fixes = fix_toml_config(&mut doc);
+        assert_eq!(fixes.len(), 1, "{fixes:?}");
+        assert!(doc.to_string().contains("\"-y\""), "{}", doc);
+        assert!(fix_toml_config(&mut doc).is_empty(), "second run is clean");
+    }
+
+    #[test]
+    fn fix_skips_healthy_and_non_npx_entries() {
+        let mut doc: DocumentMut = "[mcp_servers.ok]\ncommand = \"npx\"\nargs = [\"-y\", \"pkg\"]\n[mcp_servers.bun]\ncommand = \"bunx\"\nargs = [\"pkg\"]\n"
+            .parse()
+            .unwrap();
+        assert!(fix_toml_config(&mut doc).is_empty());
+    }
+}
