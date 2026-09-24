@@ -1109,6 +1109,8 @@ fn json_snippet(spec_format: Format, doc: &Value, name: &str) -> Option<String> 
         Format::McpServers | Format::CodexToml | Format::Opencode => "mcpServers",
         Format::Vscode => "servers",
         Format::Zed => "context_servers",
+        Format::Amp => "amp.mcpServers",
+        Format::Crush => "mcp",
     };
     let entry = doc.get(key)?.get(name)?;
     let pretty = serde_json::to_string_pretty(entry).unwrap_or_default();

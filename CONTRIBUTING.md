@@ -445,3 +445,17 @@ One line per improvement cycle: date, what changed, why.
   shape as Cline/Roo/Kiro. Remotes use type:http + url, already
   the catch-all write arm; stdio `type` is optional in Droid, so
   no dialect wiring needed. 113 tests (69 unit + 44 e2e).
+- **2026-09-24 · cycle 41 — Amp and Crush added (24 tools).** Two new
+  agents with new config formats: Amp (~/.config/amp/settings.json
+  with a flat "amp.mcpServers" dot-key — the dot is part of the key
+  name, flowing through the generic servers_key path; project
+  .amp/settings.json; plain-url remotes match the default write arm)
+  and Crush — Charm's agent (~/.config/crush/crush.json with an
+  "mcp" key and explicit type fields; project crush.json; documented
+  `disabled` disable flag like Cline/Roo). The Format enum gained
+  Amp and Crush variants; build_json_entry writes type:stdio for
+  Crush stdio entries (like VS Code) and Crush remotes join the
+  type:http+url catch-all; the npx -y repair covers both via the
+  format-agnostic path; json_snippet learned both keys. First unit
+  test for the new formats (parses_amp_and_crush_formats).
+  114 tests (70 unit + 44 e2e).

@@ -24,6 +24,10 @@ pub(crate) enum Format {
     CodexToml,
     /// opencode `opencode.json`: `mcp` object (read-only support).
     Opencode,
+    /// Amp `settings.json`: flat `amp.mcpServers` key.
+    Amp,
+    /// Crush `crush.json`: `mcp` key with explicit `type` fields.
+    Crush,
 }
 
 impl Format {
@@ -34,6 +38,8 @@ impl Format {
             Self::Vscode => Some("servers"),
             Self::Zed => Some("context_servers"),
             Self::CodexToml | Self::Opencode => None,
+            Self::Amp => Some("amp.mcpServers"),
+            Self::Crush => Some("mcp"),
         }
     }
 }
@@ -232,7 +238,7 @@ pub(crate) fn build_json_entry(format: Format, tool: ToolId, transport: &Transpo
     let mut entry = Map::new();
     match transport {
         Transport::Stdio { command, args, env } => {
-            if format == Format::Vscode {
+            if matches!(format, Format::Vscode | Format::Crush) {
                 entry.insert("type".into(), json!("stdio"));
             }
             entry.insert("command".into(), json!(command));
@@ -262,7 +268,7 @@ pub(crate) fn build_json_entry(format: Format, tool: ToolId, transport: &Transpo
                 (Format::McpServers, ToolId::Cursor | ToolId::KimiCode) => {
                     entry.insert("url".into(), json!(url));
                 }
-                (Format::McpServers | Format::Vscode, _) => {
+                (Format::McpServers | Format::Vscode | Format::Crush, _) => {
                     entry.insert("type".into(), json!("http"));
                     entry.insert("url".into(), json!(url));
                 }
@@ -582,7 +588,7 @@ pub(crate) fn fix_json_config(tool: ToolId, format: Format, doc: &mut Value) -> 
                     _ => {}
                 }
             }
-            Format::CodexToml | Format::Opencode => {}
+            Format::CodexToml | Format::Opencode | Format::Amp | Format::Crush => {}
         }
     }
     fixes
@@ -948,6 +954,53 @@ mod tests {
         )
         .unwrap();
         assert_eq!(vscode_doc["servers"]["x"]["type"], json!("stdio"));
+    }
+
+    #[test]
+    fn parses_amp_and_crush_formats() {
+        let amp = json!({"amp.mcpServers": {"src": {"command": "npx", "args": ["-y", "x"]}}});
+        let (servers, issues) = json_servers(Format::Amp, &amp);
+        assert!(issues.is_empty(), "{issues:?}");
+        assert_eq!(servers.len(), 1);
+        let Some(Transport::Stdio { command, .. }) = servers.get("src") else {
+            panic!("expected stdio: {servers:?}");
+        };
+        assert_eq!(command, "npx");
+
+        let crush = json!({"mcp": {"github": {"type": "http", "url": "https://x/mcp"}}});
+        let (servers, issues) = json_servers(Format::Crush, &crush);
+        assert!(issues.is_empty(), "{issues:?}");
+        assert_eq!(servers.len(), 1);
+        let Some(Transport::Remote { url, .. }) = servers.get("github") else {
+            panic!("expected remote: {servers:?}");
+        };
+        assert_eq!(url, "https://x/mcp");
+
+        let entry = build_json_entry(
+            Format::Crush,
+            ToolId::Crush,
+            &Transport::Stdio {
+                command: "node".into(),
+                args: vec!["s.js".into()],
+                env: BTreeMap::new(),
+            },
+        );
+        assert_eq!(entry["type"], "stdio");
+        assert_eq!(entry["command"], "node");
+
+        let entry = build_json_entry(
+            Format::Amp,
+            ToolId::Amp,
+            &Transport::Stdio {
+                command: "npx".into(),
+                args: vec!["-y".into(), "x".into()],
+                env: BTreeMap::new(),
+            },
+        );
+        assert!(
+            entry.get("type").is_none(),
+            "Amp stdio has no type: {entry}"
+        );
     }
 
     #[test]

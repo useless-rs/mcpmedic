@@ -31,6 +31,8 @@ pub(crate) enum ToolId {
     QwenCode,
     Auggie,
     FactoryDroid,
+    Amp,
+    Crush,
 }
 
 impl ToolId {
@@ -59,6 +61,8 @@ impl ToolId {
             Self::QwenCode => "qwen-code",
             Self::Auggie => "auggie",
             Self::FactoryDroid => "factory-droid",
+            Self::Amp => "amp",
+            Self::Crush => "crush",
         }
     }
 }
@@ -397,6 +401,27 @@ static REGISTRY: &[ToolSpec] = &[
         project_path: Some(|project| project.join(".factory").join("mcp.json")),
         path: |home, _| home.join(".factory").join("mcp.json"),
     },
+    ToolSpec {
+        id: ToolId::Amp,
+        display: "Amp",
+        format: Format::Amp,
+        writable: true,
+        disable: None,
+        project_path: Some(|project| project.join(".amp").join("settings.json")),
+        path: |home, _| home.join(".config").join("amp").join("settings.json"),
+    },
+    ToolSpec {
+        id: ToolId::Crush,
+        display: "Crush",
+        format: Format::Crush,
+        writable: true,
+        disable: Some(DisableFlag {
+            key: "disabled",
+            off_when: true,
+        }),
+        project_path: Some(|project| project.join("crush.json")),
+        path: |home, _| home.join(".config").join("crush").join("crush.json"),
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -437,7 +462,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 22);
+        assert_eq!(registry().len(), 24);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }
@@ -482,6 +507,11 @@ mod tests {
                 .unwrap()
                 .off_when
         );
+        assert_eq!(
+            by_id(ToolId::Crush).disable.as_ref().unwrap().key,
+            "disabled"
+        );
+        assert!(by_id(ToolId::Crush).disable.as_ref().unwrap().off_when);
         for id in [
             ToolId::Cursor,
             ToolId::ClaudeCode,
@@ -498,6 +528,7 @@ mod tests {
             ToolId::Copilot,
             ToolId::QwenCode,
             ToolId::Auggie,
+            ToolId::Amp,
         ] {
             assert!(
                 by_id(id).disable.is_none(),
@@ -563,6 +594,11 @@ mod tests {
             project_of(ToolId::FactoryDroid),
             PathBuf::from("/repo/.factory/mcp.json")
         );
+        assert_eq!(
+            project_of(ToolId::Amp),
+            PathBuf::from("/repo/.amp/settings.json")
+        );
+        assert_eq!(project_of(ToolId::Crush), PathBuf::from("/repo/crush.json"));
         for id in [
             ToolId::ClaudeDesktop,
             ToolId::Windsurf,

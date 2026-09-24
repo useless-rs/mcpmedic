@@ -996,7 +996,9 @@ fn warp_kiro_and_trae_are_discoverable() {
         ids.contains(&"factory-droid"),
         "factory-droid must appear: {ids:?}"
     );
-    assert_eq!(ids.len(), 22, "22 tools expected: {ids:?}");
+    assert!(ids.contains(&"amp"), "amp must appear: {ids:?}");
+    assert!(ids.contains(&"crush"), "crush must appear: {ids:?}");
+    assert_eq!(ids.len(), 24, "24 tools expected: {ids:?}");
 
     let _ = std::fs::remove_dir_all(&home);
 }
