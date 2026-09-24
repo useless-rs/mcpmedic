@@ -177,7 +177,12 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
         Cmd::Export { out } => cmd_export(&ctx, out),
         Cmd::Import { file, to, dry_run } => cmd_import(&ctx, &file, to.as_deref(), dry_run),
         Cmd::Backup { tool } => cmd_backup(&ctx, tool.as_deref()),
-        Cmd::Restore { tool, list, latest } => cmd_restore(&ctx, tool.as_deref(), list, latest),
+        Cmd::Restore {
+            tool,
+            list,
+            latest,
+            dry_run,
+        } => cmd_restore(&ctx, tool.as_deref(), list, latest, dry_run),
         Cmd::Audit { tool } => cmd_audit(&ctx, tool.as_deref()),
         Cmd::Summary => cmd_summary(&ctx),
         Cmd::Completions { shell } => cmd_completions(shell),
@@ -1765,7 +1770,7 @@ fn cmd_audit(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
     }
 }
 
-fn cmd_restore(ctx: &Ctx, tool: Option<&str>, list: bool, latest: bool) -> ExitCode {
+fn cmd_restore(ctx: &Ctx, tool: Option<&str>, list: bool, latest: bool, dry_run: bool) -> ExitCode {
     let backups = store::list_backups(&ctx.home);
 
     if list || !latest {
@@ -1811,6 +1816,16 @@ fn cmd_restore(ctx: &Ctx, tool: Option<&str>, list: bool, latest: bool) -> ExitC
                 continue;
             }
         };
+        if dry_run {
+            restored += 1;
+            println!(
+                "  {} {} would restore from {}",
+                report::glyph_ok(),
+                spec.display,
+                entry.path.display()
+            );
+            continue;
+        }
         match store::persist(&path, &contents, spec.id.as_str(), &ctx.home) {
             Ok(_) => {
                 restored += 1;

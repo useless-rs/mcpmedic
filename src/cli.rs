@@ -264,6 +264,9 @@ pub(crate) enum Cmd {
         /// Restore the most recent backup for each tool (or one with --tool).
         #[arg(long)]
         latest: bool,
+        /// Show what would be restored without touching any file.
+        #[arg(long, requires = "latest")]
+        dry_run: bool,
     },
 
     /// One-line health overview (tools, servers, findings) for shell prompts and CI gates.
