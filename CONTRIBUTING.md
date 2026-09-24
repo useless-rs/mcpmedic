@@ -356,3 +356,15 @@ One line per improvement cycle: date, what changed, why.
   Per the anthropics/claude-code#64541 "silent no-spawn" report, this
   is the difference between guessing and knowing. 106 tests
   (66 unit + 40 e2e).
+- **2026-09-24 · cycle 33 — v0.7.0 released.** Version bump 0.6.0 →
+  0.7.0 shipping two probe features: the tools/list query (after a
+  successful initialize handshake the probe sends notifications/
+  initialized + tools/list and reports each server's exposed tool
+  count) and stderr tail capture (a crashed server's stderr output is
+  included in the finding, so users see the real failure cause
+  instead of a bare exit code). doctor --probe is now the deepest
+  health check in the ecosystem: initialize handshake, tools/list
+  with counts, stderr tails, env var validation, npx footguns, dead
+  commands, dialect violations, drift, bloat. 5-platform binaries
+  (linux amd64/arm64, macOS amd64/arm64, Windows x86_64), Homebrew
+  tap updated with v0.7.0 sha256 hashes. 106 tests (66 unit + 40 e2e).
