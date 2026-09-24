@@ -307,3 +307,9 @@ One line per improvement cycle: date, what changed, why.
   handshake timeout). JSON-RPC error replies and non-NDJSON stdout
   fall back to reachable-with-reason. Remotes keep TCP connect. Zero
   new dependencies. 100 tests (61 unit + 39 e2e).
+- **2026-09-24 · cycle 28b — Windows probe race fix.** The EOF branch
+  of the handshake probe now retries try_wait for up to 500 ms (10 ms
+  polls): on Windows the child's stdout pipe can close a moment before
+  the exit is observable via try_wait, which misclassified an
+  instantly-crashing server (`sh -c 'exit 1'`) as Reachable. Caught by
+  the windows-latest CI job; Linux/macOS observe the exit immediately.

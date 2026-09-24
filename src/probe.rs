@@ -10,6 +10,7 @@ use std::time::Duration;
 use crate::model::Transport;
 
 const HANDSHAKE_TIMEOUT_MS: u64 = 3000;
+const EXIT_GRACE_MS: u64 = 500;
 const TCP_TIMEOUT_SECS: u64 = 3;
 
 /// Result of a reachability probe on one server.
@@ -68,7 +69,7 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
 
     let verdict = match rx.recv_timeout(Duration::from_millis(HANDSHAKE_TIMEOUT_MS)) {
         Ok(Some(line)) => classify_response(&line),
-        Ok(None) => match child.try_wait() {
+        Ok(None) => match try_wait_bounded(&mut child, EXIT_GRACE_MS) {
             Ok(Some(status)) => Probe::Unreachable(format!(
                 "process exited with {status} before answering MCP initialize"
             )),
@@ -87,6 +88,24 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
     let _ = child.kill();
     let _ = child.wait();
     verdict
+}
+
+fn try_wait_bounded(
+    child: &mut std::process::Child,
+    max_ms: u64,
+) -> std::io::Result<Option<std::process::ExitStatus>> {
+    let deadline = std::time::Instant::now() + Duration::from_millis(max_ms);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return Ok(Some(status)),
+            Ok(None) => {}
+            Err(e) => return Err(e),
+        }
+        if std::time::Instant::now() >= deadline {
+            return Ok(None);
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 fn initialize_message() -> String {
