@@ -630,3 +630,20 @@ One line per improvement cycle: date, what changed, why.
   slow-server e2e proves both directions: a 4.5s sleeper misses
   the default budget and lands with --probe-timeout 10000.
   123 tests (74 unit + 49 e2e).
+- **2026-09-24 · cycle 54 — v0.14.0 released.** Version bump
+  0.13.0 → 0.14.0 shipping two features: diff --json (the last
+  read command without machine output — one document with tool
+  ids, server counts, the three drift buckets, the identical
+  count, and an in_sync flag for CI gating; --json now covers
+  every read command) and doctor --probe-timeout <ms> (a
+  configurable probe budget scaling every phase proportionally;
+  budget-aware timeout messages; the claude-code#60224/#84136
+  fixed-deadline bug class). Also: the init empty-case recommends
+  the curated preset bundles first. 5-platform binaries, Homebrew
+  tap updated with v0.14.0 sha256 hashes. 123 tests (74 unit +
+  49 e2e). Roadmap: YAML research confirmed Goose (~/.config/
+  goose/config.yaml, extensions list with transport blocks,
+  flow-style args arrays) and Continue (~/.continue/config.yaml,
+  mcpServers list) both need flow-style sequences — a block-only
+  parser is insufficient; a from-scratch YAML subset parser remains
+  a multi-cycle project.
