@@ -26,6 +26,7 @@ mod format_yaml;
 mod model;
 mod presets;
 mod probe;
+mod probe_stdio;
 mod registry;
 mod report;
 mod store;
