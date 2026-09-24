@@ -33,6 +33,8 @@ pub(crate) enum ToolId {
     FactoryDroid,
     Amp,
     Crush,
+    OpenHands,
+    Devin,
 }
 
 impl ToolId {
@@ -63,6 +65,8 @@ impl ToolId {
             Self::FactoryDroid => "factory-droid",
             Self::Amp => "amp",
             Self::Crush => "crush",
+            Self::OpenHands => "openhands",
+            Self::Devin => "devin",
         }
     }
 }
@@ -422,6 +426,24 @@ static REGISTRY: &[ToolSpec] = &[
         project_path: Some(|project| project.join("crush.json")),
         path: |home, _| home.join(".config").join("crush").join("crush.json"),
     },
+    ToolSpec {
+        id: ToolId::OpenHands,
+        display: "OpenHands",
+        format: Format::McpServers,
+        writable: true,
+        disable: None,
+        project_path: None,
+        path: |home, _| home.join(".openhands").join("mcp.json"),
+    },
+    ToolSpec {
+        id: ToolId::Devin,
+        display: "Devin CLI",
+        format: Format::McpServers,
+        writable: true,
+        disable: None,
+        project_path: Some(|project| project.join(".devin").join("config.json")),
+        path: |home, _| home.join(".config").join("devin").join("config.json"),
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -462,7 +484,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 24);
+        assert_eq!(registry().len(), 26);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }
@@ -529,6 +551,8 @@ mod tests {
             ToolId::QwenCode,
             ToolId::Auggie,
             ToolId::Amp,
+            ToolId::OpenHands,
+            ToolId::Devin,
         ] {
             assert!(
                 by_id(id).disable.is_none(),
@@ -599,6 +623,10 @@ mod tests {
             PathBuf::from("/repo/.amp/settings.json")
         );
         assert_eq!(project_of(ToolId::Crush), PathBuf::from("/repo/crush.json"));
+        assert_eq!(
+            project_of(ToolId::Devin),
+            PathBuf::from("/repo/.devin/config.json")
+        );
         for id in [
             ToolId::ClaudeDesktop,
             ToolId::Windsurf,

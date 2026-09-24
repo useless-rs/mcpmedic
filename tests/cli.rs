@@ -998,7 +998,9 @@ fn warp_kiro_and_trae_are_discoverable() {
     );
     assert!(ids.contains(&"amp"), "amp must appear: {ids:?}");
     assert!(ids.contains(&"crush"), "crush must appear: {ids:?}");
-    assert_eq!(ids.len(), 24, "24 tools expected: {ids:?}");
+    assert!(ids.contains(&"openhands"), "openhands must appear: {ids:?}");
+    assert!(ids.contains(&"devin"), "devin must appear: {ids:?}");
+    assert_eq!(ids.len(), 26, "26 tools expected: {ids:?}");
 
     let _ = std::fs::remove_dir_all(&home);
 }
