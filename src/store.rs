@@ -243,6 +243,26 @@ pub(crate) fn persist(
     Ok(backup)
 }
 
+/// Atomically write `contents` to an arbitrary path (no backup): tmp
+/// sibling + fsync + rename, with tmp cleanup on failure. For export
+/// targets and other non-config files that must never be half-written.
+pub(crate) fn write_atomic(path: &Path, contents: &str) -> std::io::Result<()> {
+    let tmp = tmp_path(path);
+    if let Err(e) = fs::write(&tmp, contents) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
+    if let Err(e) = sync_tmp(&tmp) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
+    if let Err(e) = fs::rename(&tmp, path) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
+    Ok(())
+}
+
 /// Collision-proof sibling tmp path: same directory (so rename stays atomic),
 /// unique per process + millisecond + counter so two persists in the same
 /// millisecond — or a stale tmp from a crashed run — can never clobber.

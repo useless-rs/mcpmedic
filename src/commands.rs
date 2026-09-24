@@ -1582,7 +1582,7 @@ fn cmd_export(ctx: &Ctx, out: Option<PathBuf>) -> ExitCode {
                 "{}\n",
                 serde_json::to_string_pretty(&payload).unwrap_or_default()
             );
-            if let Err(e) = std::fs::write(&path, body) {
+            if let Err(e) = store::write_atomic(&path, &body) {
                 return fail(&format!("cannot write {}: {e}", path.display()));
             }
             println!(
