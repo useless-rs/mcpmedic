@@ -204,6 +204,12 @@ fn cmd_edit(ctx: &Ctx, tool: &str, print: bool) -> ExitCode {
     let Ok(spec) = resolve(tool) else {
         return fail(&format!("unknown tool `{tool}`"));
     };
+    if ctx.project.is_some() && spec.project_path.is_none() {
+        return fail(&format!(
+            "{} has no project-scoped config — --project does not apply to it",
+            spec.display
+        ));
+    }
     let path = ctx.path(spec);
     if !path.exists() {
         return fail(&format!(

@@ -1546,6 +1546,21 @@ fn diff_exit_code_gates_on_drift() {
 }
 
 #[test]
+fn edit_project_mode_refuses_scopeless_tools() {
+    let home = sample_home("edit-project-scope");
+    let proj = home.join("proj");
+    std::fs::create_dir_all(&proj).unwrap();
+    let out = run(&home, &["edit", "cline", "--print", "--project", "proj"]);
+    assert!(!out.status.success());
+    assert!(
+        stderr(&out).contains("no project-scoped config"),
+        "got: {}",
+        stderr(&out)
+    );
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn export_tool_filters_to_one_tool() {
     let home = sample_home("export-tool");
     let out = run(&home, &["export", "--tool", "cursor"]);
