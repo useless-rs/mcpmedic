@@ -1606,6 +1606,24 @@ fn restore_dry_run_touches_nothing() {
 }
 
 #[test]
+fn color_always_forces_ansi_despite_no_color() {
+    let home = sample_home("color-always");
+    let out = run(&home, &["list", "--color", "always"]);
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+    assert!(
+        stdout(&out).contains("\u{1b}["),
+        "expected ANSI codes: {}",
+        stdout(&out)
+    );
+    let plain = run(&home, &["list", "--color", "never"]);
+    assert!(
+        !stdout(&plain).contains("\u{1b}["),
+        "expected no ANSI codes"
+    );
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn doctor_fix_repairs_codex_toml_npx_yes() {
     let home = temp_home("fix-toml-npx");
     write(

@@ -17,6 +17,17 @@ const STYLES: Styles = Styles::styled()
     .valid(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
     .invalid(AnsiColor::Yellow.on_default().effects(Effects::BOLD));
 
+#[derive(Clone, Copy, Debug, Default, clap::ValueEnum)]
+pub(crate) enum ColorMode {
+    /// Colors when on a terminal without `NO_COLOR`, off otherwise.
+    #[default]
+    Auto,
+    /// Always emit ANSI colors, even when piped.
+    Always,
+    /// Never emit ANSI colors.
+    Never,
+}
+
 #[derive(Debug, Parser)]
 #[command(
     name = "mcpmedic",
@@ -42,6 +53,11 @@ pub(crate) struct Cli {
     /// Exit codes are unchanged. Combine with --json for fully scriptable output.
     #[arg(long, global = true)]
     pub quiet: bool,
+
+    /// Control colored output. `auto` (default) disables colors when piped
+    /// or when `NO_COLOR` is set; `always`/`never` force the behavior.
+    #[arg(long, global = true, value_enum, default_value_t = ColorMode::Auto)]
+    pub color: ColorMode,
 
     #[command(subcommand)]
     pub cmd: Option<Cmd>,

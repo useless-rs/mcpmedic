@@ -5,10 +5,18 @@ use std::io::IsTerminal;
 
 use colored::Colorize;
 
-/// Disable colors when `NO_COLOR` is set or stdout is not a terminal.
-pub(crate) fn init_colors() {
-    if std::env::var_os("NO_COLOR").is_some() || !std::io::stdout().is_terminal() {
-        colored::control::set_override(false);
+/// Set up colored output: `Auto` disables colors when `NO_COLOR` is set or
+/// stdout is not a terminal; `Always`/`Never` force the behavior.
+pub(crate) fn init_colors(mode: crate::cli::ColorMode) {
+    use crate::cli::ColorMode::{Always, Auto, Never};
+    match mode {
+        Always => colored::control::set_override(true),
+        Never => colored::control::set_override(false),
+        Auto => {
+            if std::env::var_os("NO_COLOR").is_some() || !std::io::stdout().is_terminal() {
+                colored::control::set_override(false);
+            }
+        }
     }
 }
 

@@ -46,7 +46,7 @@ use clap::Parser;
 fn main() -> ExitCode {
     silence_broken_pipe();
     let cli = cli::Cli::parse();
-    report::init_colors();
+    report::init_colors(cli.color);
     commands::run(cli)
 }
 
