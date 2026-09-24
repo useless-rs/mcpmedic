@@ -424,3 +424,16 @@ One line per improvement cycle: date, what changed, why.
   Kimi Code (plain url); the registry tests gained entries, and the
   disable negative list now covers every flagless tool including
   Continue, LM Studio and Copilot. 113 tests (69 unit + 44 e2e).
+- **2026-09-24 · cycle 39 — v0.9.0 released.** Version bump 0.8.0 →
+  0.9.0 shipping the 18→21 tool expansion: GitHub Copilot CLI
+  (~/.copilot/mcp-config.json, project .github/mcp.json), Kimi Code
+  (~/.kimi-code/mcp.json, enabled:false disable flag, project
+  .kimi-code/mcp.json), Qwen Code (~/.qwen/settings.json, httpUrl
+  remote dialect, project .qwen/settings.json) and Auggie
+  (~/.augment/settings.json) — every one verified against
+  first-party docs, with per-tool remote-write dialects wired
+  (Qwen httpUrl, Kimi plain url). 5-platform binaries, Homebrew
+  tap updated with v0.9.0 sha256 hashes. 113 tests (69 unit +
+  44 e2e). Roadmap: Factory Droid (standard mcpServers + disabled
+  flag, simple), Amp (flat "amp.mcpServers" dot-key — needs a new
+  Format variant) and Crush ("mcp" key) researched for cycle 40.
