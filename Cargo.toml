@@ -10,6 +10,7 @@ homepage = "https://github.com/useless-rs/mcpmedic"
 readme = "README.md"
 keywords = ["mcp", "cli", "ai", "config", "developer-tools"]
 categories = ["command-line-utilities", "development-tools"]
+exclude = [".omo/"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
