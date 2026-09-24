@@ -13,13 +13,20 @@ pub(crate) fn init_colors() {
 }
 
 /// Truncate a string with an ellipsis if it exceeds `max` characters.
+/// Single pass: bails out with the original slice when short, so the
+/// common no-truncation path allocates once and never walks twice.
 pub(crate) fn truncate(s: &str, max: usize) -> String {
-    if s.chars().count() <= max {
-        s.to_owned()
-    } else {
-        let cut: String = s.chars().take(max.saturating_sub(1)).collect();
-        format!("{cut}…")
+    let mut chars = s.chars();
+    for _ in 0..max {
+        if chars.next().is_none() {
+            return s.to_owned();
+        }
     }
+    if chars.next().is_none() {
+        return s.to_owned();
+    }
+    let cut: String = s.chars().take(max.saturating_sub(1)).collect();
+    format!("{cut}…")
 }
 
 /// Render fixed-width columns, padding each cell to the widest value in it.
@@ -103,6 +110,15 @@ mod tests {
     #[test]
     fn truncate_long_gets_ellipsis() {
         assert_eq!(truncate("abcdefgh", 5), "abcd…");
+    }
+
+    #[test]
+    fn truncate_honors_tiny_budgets() {
+        assert_eq!(truncate("", 0), "");
+        assert_eq!(truncate("ab", 0), "…");
+        assert_eq!(truncate("a", 1), "a");
+        assert_eq!(truncate("ab", 1), "…");
+        assert_eq!(truncate("héllo", 4), "hél…");
     }
 
     #[test]
