@@ -331,3 +331,15 @@ One line per improvement cycle: date, what changed, why.
   5-platform binaries (linux amd64/arm64, macOS amd64/arm64, Windows
   x86_64), Homebrew tap updated with v0.6.0 sha256 hashes. 104 tests
   (64 unit + 40 e2e).
+- **2026-09-24 · cycle 31 — tools/list probe query.** After a
+  successful initialize handshake, the stdio probe now completes the
+  MCP lifecycle: sends notifications/initialized, requests tools/list,
+  and reports the count — "probe: MCP handshake ok — `mock` speaks
+  protocol 2025-11-25, exposes 2 tool(s)". The stdout reader became a
+  message pump streaming all JSON-RPC responses (banners/notifications
+  still skipped) — required for multi-request conversations. The
+  tools/list response is matched by id via a small ToolsReply enum
+  (NotIt / Count / Unknown); unrelated messages are ignored until the
+  2s deadline. Best-effort: a server that exits or stays silent after
+  initialize is still McpOk, just without the count. 105 tests
+  (65 unit + 40 e2e).

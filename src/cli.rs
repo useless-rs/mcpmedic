@@ -67,7 +67,8 @@ pub(crate) enum Cmd {
 
     /// Health-check all configs: broken JSON, dead commands, drift, bloat.
     /// Pass --probe to verify each server responds (real MCP initialize
-    /// handshake for stdio servers, TCP connect for remotes).
+    /// handshake and tools/list query for stdio servers, TCP connect
+    /// for remotes).
     Doctor {
         /// Only check this tool (id or display name).
         #[arg(long)]
@@ -87,7 +88,9 @@ pub(crate) enum Cmd {
         dry_run: bool,
 
         /// Probe each server: stdio servers get a real MCP initialize
-        /// handshake (3 s timeout); remote endpoints get a TCP connect.
+        /// handshake plus a tools/list query — reporting the server's
+        /// name, protocol version and exposed tool count; remote
+        /// endpoints get a TCP connect.
         #[arg(long)]
         probe: bool,
     },

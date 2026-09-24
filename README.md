@@ -227,7 +227,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `init` | One-shot onboarding: detect every configured tool, pick the richest as the source, sync it to every other installed tool. With `--json`: print the plan only, no files touched |
 | `list [--tool <t>]` | Table of every server per tool |
 | `show <name>` | Every tool that configures a given server + drift check |
-| `doctor [--tool <t>] [--strict] [--fix] [--probe]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat, unset `${VAR}` env references (e.g. `${GITHUB_TOKEN}` or `${env:API_KEY}` referenced in `env`/`headers` but not present in the environment), npx footguns (missing `-y` hang risk, `@latest` registry round-trips). `--fix` applies safe auto-repairs (`--dry-run` previews); `--probe` speaks MCP: stdio servers get a real initialize handshake (3s) that reports the server's own name and protocol version; remotes get a TCP connect |
+| `doctor [--tool <t>] [--strict] [--fix] [--probe]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat, unset `${VAR}` env references (e.g. `${GITHUB_TOKEN}` or `${env:API_KEY}` referenced in `env`/`headers` but not present in the environment), npx footguns (missing `-y` hang risk, `@latest` registry round-trips). `--fix` applies safe auto-repairs (`--dry-run` previews); `--probe` speaks MCP: stdio servers get a real initialize handshake plus a tools/list query — reporting the server's name, protocol version and exposed tool count; remotes get a TCP connect |
 | `diff <a> <b>` | Server drift between two tools |
 | `add <name> --to <t> ...` | Add a stdio (`--command ... -- args`) or remote (`--url`) server |
 | `rm <name> --from <t>` | Remove one server |

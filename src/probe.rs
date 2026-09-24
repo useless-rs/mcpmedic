@@ -10,6 +10,7 @@ use std::time::Duration;
 use crate::model::Transport;
 
 const HANDSHAKE_TIMEOUT_MS: u64 = 3000;
+const TOOLS_TIMEOUT_MS: u64 = 2000;
 const EXIT_GRACE_MS: u64 = 500;
 const TCP_TIMEOUT_SECS: u64 = 3;
 
@@ -17,8 +18,13 @@ const TCP_TIMEOUT_SECS: u64 = 3;
 #[derive(Debug)]
 pub(crate) enum Probe {
     /// The server completed a full MCP initialize handshake; carries the
-    /// server's reported name and negotiated protocol version.
-    McpOk { server: String, protocol: String },
+    /// server's reported name, negotiated protocol version, and — when
+    /// the tools/list round trip also succeeded — exposed tool count.
+    McpOk {
+        server: String,
+        protocol: String,
+        tools: Option<usize>,
+    },
     /// The server started or the endpoint accepted a connection, but did
     /// not complete an MCP handshake.
     Reachable(String),
@@ -53,7 +59,7 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
         Err(e) => return Probe::Unreachable(format!("failed to start: {e}")),
     };
 
-    let stdin = child.stdin.take();
+    let mut stdin = child.stdin.take();
     if let Some(w) = stdin.as_ref() {
         let mut w = w;
         let _ = w.write_all(initialize_message().as_bytes());
@@ -64,11 +70,29 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
     let stdout = child.stdout.take();
     let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
     std::thread::spawn(move || {
-        let _ = tx.send(scan_for_jsonrpc(stdout));
+        if let Some(out) = stdout {
+            for line in std::io::BufReader::new(out).lines() {
+                let Ok(line) = line else { break };
+                if is_jsonrpc_message(&line) && tx.send(Some(line)).is_err() {
+                    break;
+                }
+            }
+        }
+        let _ = tx.send(None);
     });
 
     let verdict = match rx.recv_timeout(Duration::from_millis(HANDSHAKE_TIMEOUT_MS)) {
-        Ok(Some(line)) => classify_response(&line),
+        Ok(Some(line)) => match parse_success(&line) {
+            Some((server, protocol)) => {
+                let tools = fetch_tool_count(&mut stdin, &rx);
+                Probe::McpOk {
+                    server,
+                    protocol,
+                    tools,
+                }
+            }
+            None => classify_failure(&line),
+        },
         Ok(None) => match try_wait_bounded(&mut child, EXIT_GRACE_MS) {
             Ok(Some(status)) => Probe::Unreachable(format!(
                 "process exited with {status} before answering MCP initialize"
@@ -132,34 +156,90 @@ fn is_jsonrpc_message(line: &str) -> bool {
     v.get("jsonrpc").is_some() && (v.get("result").is_some() || v.get("error").is_some())
 }
 
-fn scan_for_jsonrpc(stdout: Option<std::process::ChildStdout>) -> Option<String> {
-    let out = stdout?;
-    for line in std::io::BufReader::new(out).lines() {
-        let Ok(line) = line else { return None };
-        if is_jsonrpc_message(&line) {
-            return Some(line);
+fn fetch_tool_count(
+    stdin: &mut Option<std::process::ChildStdin>,
+    rx: &std::sync::mpsc::Receiver<Option<String>>,
+) -> Option<usize> {
+    let w = stdin.as_mut()?;
+    let _ = w.write_all(initialized_notification().as_bytes());
+    let _ = w.write_all(b"\n");
+    let _ = w.write_all(tools_list_message().as_bytes());
+    let _ = w.write_all(b"\n");
+    let _ = w.flush();
+    let deadline = std::time::Instant::now() + Duration::from_millis(TOOLS_TIMEOUT_MS);
+    loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            return None;
+        }
+        match rx.recv_timeout(remaining) {
+            Ok(Some(line)) => match tools_count_from_response(&line) {
+                ToolsReply::Count(count) => return Some(count),
+                ToolsReply::Unknown => return None,
+                ToolsReply::NotIt => {}
+            },
+            _ => return None,
         }
     }
-    None
 }
 
-fn classify_response(line: &str) -> Probe {
+fn initialized_notification() -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "notifications/initialized"
+    })
+    .to_string()
+}
+
+fn tools_list_message() -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list",
+        "params": {}
+    })
+    .to_string()
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ToolsReply {
+    NotIt,
+    Count(usize),
+    Unknown,
+}
+
+fn tools_count_from_response(line: &str) -> ToolsReply {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+        return ToolsReply::NotIt;
+    };
+    if v.get("id").and_then(serde_json::Value::as_i64) != Some(2) {
+        return ToolsReply::NotIt;
+    }
+    match v
+        .pointer("/result/tools")
+        .and_then(serde_json::Value::as_array)
+    {
+        Some(tools) => ToolsReply::Count(tools.len()),
+        None => ToolsReply::Unknown,
+    }
+}
+
+fn parse_success(line: &str) -> Option<(String, String)> {
+    let v = serde_json::from_str::<serde_json::Value>(line).ok()?;
+    let name = v
+        .pointer("/result/serverInfo/name")
+        .and_then(serde_json::Value::as_str)?;
+    let protocol = v
+        .pointer("/result/protocolVersion")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+    Some((name.to_string(), protocol.to_string()))
+}
+
+fn classify_failure(line: &str) -> Probe {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
         return Probe::Reachable("replied with non-JSON output".into());
     };
-    if let Some(name) = v
-        .pointer("/result/serverInfo/name")
-        .and_then(serde_json::Value::as_str)
-    {
-        let protocol = v
-            .pointer("/result/protocolVersion")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("unknown");
-        return Probe::McpOk {
-            server: name.to_string(),
-            protocol: protocol.to_string(),
-        };
-    }
     if let Some(err) = v
         .pointer("/error/message")
         .and_then(serde_json::Value::as_str)
@@ -229,18 +309,29 @@ mod tests {
 
     #[test]
     fn stdio_handshake_verifies_mcp_response() {
-        let resp = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"mock","version":"1.0"}}}"#;
+        let init = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"mock","version":"1.0"}}}"#;
+        let tools = r#"{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"a"},{"name":"b"}]}}"#;
         let transport = Transport::Stdio {
             command: "sh".into(),
-            args: vec!["-c".into(), format!("read line; printf '%s\\n' '{resp}'")],
+            args: vec![
+                "-c".into(),
+                format!(
+                    "read a; printf '%s\\n' '{init}'; read b; read c; printf '%s\\n' '{tools}'"
+                ),
+            ],
             env: BTreeMap::new(),
         };
         match probe_transport(&transport) {
-            Probe::McpOk { server, protocol } => {
+            Probe::McpOk {
+                server,
+                protocol,
+                tools,
+            } => {
                 assert_eq!(server, "mock");
                 assert_eq!(protocol, "2025-11-25");
+                assert_eq!(tools, Some(2));
             }
-            other => panic!("expected McpOk, got {other:?}"),
+            other => panic!("expected McpOk with tools, got {other:?}"),
         }
     }
 
@@ -256,9 +347,31 @@ mod tests {
             env: BTreeMap::new(),
         };
         match probe_transport(&transport) {
-            Probe::McpOk { server, .. } => assert_eq!(server, "banner"),
+            Probe::McpOk { server, tools, .. } => {
+                assert_eq!(server, "banner");
+                assert_eq!(tools, None, "server exits after initialize: tools unknown");
+            }
             other => panic!("expected McpOk, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn tools_count_matches_only_id_2_responses() {
+        assert_eq!(
+            tools_count_from_response(
+                r#"{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"a"}]}}"#
+            ),
+            ToolsReply::Count(1)
+        );
+        assert_eq!(
+            tools_count_from_response(r#"{"jsonrpc":"2.0","id":3,"result":{"tools":[]}}"#),
+            ToolsReply::NotIt
+        );
+        assert_eq!(
+            tools_count_from_response(r#"{"jsonrpc":"2.0","id":2,"error":{"message":"nope"}}"#),
+            ToolsReply::Unknown
+        );
+        assert_eq!(tools_count_from_response("not json"), ToolsReply::NotIt);
     }
 
     #[test]
