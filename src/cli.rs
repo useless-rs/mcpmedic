@@ -89,8 +89,9 @@ pub(crate) enum Cmd {
 
         /// Probe each server: stdio servers get a real MCP initialize
         /// handshake plus a tools/list query — reporting the server's
-        /// name, protocol version and exposed tool count; remote
-        /// endpoints get a TCP connect.
+        /// name, protocol version and exposed tool count; modern
+        /// (2026-07-28-era) servers are identified via server/discover;
+        /// remote endpoints get a TCP connect.
         #[arg(long)]
         probe: bool,
 

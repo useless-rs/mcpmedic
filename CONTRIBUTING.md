@@ -554,3 +554,20 @@ One line per improvement cycle: date, what changed, why.
   identifies a modern (2026-07-28) server, UnsupportedProtocolVersionError
   (-32022) a modern server needing a version retry, anything else
   falls back to the legacy initialize handshake.
+- **2026-09-24 · cycle 49 — dual-era server/discover probe.** The
+  stdio probe now follows the 2026-07-28 spec's exact dual-era
+  client guidance: probe with server/discover (modern _meta,
+  1s budget) first. A DiscoverResult identifies a modern server —
+  reported via a new ModernOk probe outcome carrying the server's
+  name and supportedVersions ("probe: modern MCP — `X` supports
+  protocol 2026-07-28 (server/discover)"). UnsupportedProtocolVersionError
+  (-32022) also identifies a modern server: its error.data.supported
+  list is reported. Any other answer (legacy -32601 method-not-found,
+  silence, timeout) falls back to the legacy initialize handshake —
+  the existing C28/C31 machinery, extracted into a
+  legacy_handshake_phase helper. exit_message became phase-neutral
+  ("before answering the MCP probe"). Every legacy mock test updated
+  to answer discover first; two new modern-path tests cover the
+  DiscoverResult and -32022 outcomes; the e2e gained a modern mock
+  server. Total legacy-server probe overhead: +1s (the discover
+  budget). 120 tests (74 unit + 46 e2e).

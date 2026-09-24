@@ -1144,13 +1144,19 @@ fn init_json_reports_source_without_touching_files() {
 #[test]
 fn doctor_probe_reports_mcp_handshake() {
     let home = temp_home("probe-handshake");
+    let legacy_err =
+        r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}"#;
     let init = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"mock-mcp","version":"1.0"}}}"#;
     let tools = r#"{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"a"},{"name":"b"}]}}"#;
-    let script =
-        format!("read a; printf '%s\\n' '{init}'; read b; read c; printf '%s\\n' '{tools}'");
+    let script = format!(
+        "read a; printf '%s\\n' '{legacy_err}'; read b; printf '%s\\n' '{init}'; read c; read d; printf '%s\\n' '{tools}'"
+    );
+    let discover_result = r#"{"jsonrpc":"2.0","id":1,"result":{"supportedVersions":["2026-07-28"],"capabilities":{"tools":{}},"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"modern-srv","version":"1.0"}}}}"#;
+    let modern_script = format!("read a; printf '%s\\n' '{discover_result}'");
     let cfg = format!(
-        r#"{{"mcpServers":{{"mock":{{"command":"sh","args":["-c",{}]}},"broken":{{"command":"definitely-missing-cmd-xyz","args":[]}},"noisy":{{"command":"sh","args":["-c","echo boom detail >&2; exit 1"]}}}}}}"#,
-        serde_json::to_string(&script).unwrap()
+        r#"{{"mcpServers":{{"mock":{{"command":"sh","args":["-c",{}]}},"modern":{{"command":"sh","args":["-c",{}]}},"broken":{{"command":"definitely-missing-cmd-xyz","args":[]}},"noisy":{{"command":"sh","args":["-c","echo boom detail >&2; exit 1"]}}}}}}"#,
+        serde_json::to_string(&script).unwrap(),
+        serde_json::to_string(&modern_script).unwrap()
     );
     std::fs::write(home.join(".claude.json"), cfg).unwrap();
     let out = run(&home, &["--json", "doctor", "--probe"]);
@@ -1162,6 +1168,14 @@ fn doctor_probe_reports_mcp_handshake() {
     assert!(
         stdout.contains("exposes 2 tool"),
         "tool count missing: {stdout}"
+    );
+    assert!(
+        stdout.contains("modern MCP"),
+        "modern discover missing: {stdout}"
+    );
+    assert!(
+        stdout.contains("modern-srv"),
+        "modern server missing: {stdout}"
     );
     assert!(
         stdout.contains("definitely-missing-cmd-xyz") || stdout.contains("unreachable"),

@@ -723,6 +723,15 @@ fn probe_findings(loads: &[ToolLoad]) -> Vec<doctor::Finding> {
                                 ),
                             )
                         }
+                        crate::probe::Probe::ModernOk { server, versions } => {
+                            let versions_list = versions.join(", ");
+                            (
+                                Severity::Info,
+                                format!(
+                                    "probe: modern MCP — `{server}` supports protocol {versions_list} (server/discover)"
+                                ),
+                            )
+                        }
                         crate::probe::Probe::Reachable(reason) => {
                             (Severity::Info, format!("probe: {reason}"))
                         }

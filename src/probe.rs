@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use crate::model::Transport;
 
+const DISCOVER_TIMEOUT_MS: u64 = 1000;
 const HANDSHAKE_TIMEOUT_MS: u64 = 3000;
 const TOOLS_TIMEOUT_MS: u64 = 2000;
 const EXIT_GRACE_MS: u64 = 500;
@@ -26,6 +27,12 @@ pub(crate) enum Probe {
         server: String,
         protocol: String,
         tools: Option<usize>,
+    },
+    /// A modern (2026-07-28-era) server answered `server/discover`;
+    /// carries its reported name and supported protocol versions.
+    ModernOk {
+        server: String,
+        versions: Vec<String>,
     },
     /// The server started or the endpoint accepted a connection, but did
     /// not complete an MCP handshake.
@@ -62,9 +69,8 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
     };
 
     let mut stdin = child.stdin.take();
-    if let Some(w) = stdin.as_ref() {
-        let mut w = w;
-        let _ = w.write_all(initialize_message().as_bytes());
+    if let Some(w) = stdin.as_mut() {
+        let _ = w.write_all(discover_message().as_bytes());
         let _ = w.write_all(b"\n");
         let _ = w.flush();
     }
@@ -103,28 +109,22 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
         let _ = err_tx.send(tail);
     });
 
-    let verdict = match rx.recv_timeout(Duration::from_millis(HANDSHAKE_TIMEOUT_MS)) {
-        Ok(Some(line)) => match parse_success(&line) {
-            Some((server, protocol)) => {
-                let tools = fetch_tool_count(&mut stdin, &rx);
-                Probe::McpOk {
-                    server,
-                    protocol,
-                    tools,
-                }
+    let verdict = match rx.recv_timeout(Duration::from_millis(DISCOVER_TIMEOUT_MS)) {
+        Ok(Some(line)) => match classify_discover(&line) {
+            DiscoverOutcome::Modern(probe) => probe,
+            DiscoverOutcome::Legacy => {
+                send_legacy_initialize(&mut stdin);
+                legacy_handshake_phase(&mut stdin, &rx, &mut child, &err_rx)
             }
-            None => classify_failure(&line),
         },
         Ok(None) => match try_wait_bounded(&mut child, EXIT_GRACE_MS) {
             Ok(Some(status)) => Probe::Unreachable(exit_message(status, &err_rx)),
             _ => Probe::Reachable("closed stdout without an MCP response".into()),
         },
-        Err(_) => match child.try_wait() {
-            Ok(Some(status)) => Probe::Unreachable(exit_message(status, &err_rx)),
-            _ => Probe::Reachable(
-                "no MCP initialize response within 3s (slow startup is common)".into(),
-            ),
-        },
+        Err(_) => {
+            send_legacy_initialize(&mut stdin);
+            legacy_handshake_phase(&mut stdin, &rx, &mut child, &err_rx)
+        }
     };
     drop(stdin);
     let _ = child.kill();
@@ -150,11 +150,111 @@ fn try_wait_bounded(
     }
 }
 
+enum DiscoverOutcome {
+    Modern(Probe),
+    Legacy,
+}
+
+fn classify_discover(line: &str) -> DiscoverOutcome {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+        return DiscoverOutcome::Legacy;
+    };
+    if let Some(versions) = v
+        .pointer("/result/supportedVersions")
+        .and_then(serde_json::Value::as_array)
+    {
+        let versions: Vec<String> = versions
+            .iter()
+            .filter_map(|x| x.as_str().map(str::to_string))
+            .collect();
+        let server = v
+            .pointer("/result/_meta/io.modelcontextprotocol~1serverInfo/name")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown")
+            .to_string();
+        return DiscoverOutcome::Modern(Probe::ModernOk { server, versions });
+    }
+    if v.pointer("/error/code").and_then(serde_json::Value::as_i64) == Some(-32022) {
+        let versions: Vec<String> = v
+            .pointer("/error/data/supported")
+            .and_then(serde_json::Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|x| x.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        return DiscoverOutcome::Modern(Probe::ModernOk {
+            server: "unknown".into(),
+            versions,
+        });
+    }
+    DiscoverOutcome::Legacy
+}
+
+fn discover_message() -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "server/discover",
+        "params": {
+            "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientInfo": {
+                    "name": "mcpmedic",
+                    "version": env!("CARGO_PKG_VERSION")
+                },
+                "io.modelcontextprotocol/clientCapabilities": {}
+            }
+        }
+    })
+    .to_string()
+}
+
+fn send_legacy_initialize(stdin: &mut Option<std::process::ChildStdin>) {
+    if let Some(w) = stdin.as_mut() {
+        let _ = w.write_all(initialize_message().as_bytes());
+        let _ = w.write_all(b"\n");
+        let _ = w.flush();
+    }
+}
+
+fn legacy_handshake_phase(
+    stdin: &mut Option<std::process::ChildStdin>,
+    rx: &std::sync::mpsc::Receiver<Option<String>>,
+    child: &mut std::process::Child,
+    err_rx: &std::sync::mpsc::Receiver<String>,
+) -> Probe {
+    match rx.recv_timeout(Duration::from_millis(HANDSHAKE_TIMEOUT_MS)) {
+        Ok(Some(line)) => match parse_success(&line) {
+            Some((server, protocol)) => {
+                let tools = fetch_tool_count(stdin, rx);
+                Probe::McpOk {
+                    server,
+                    protocol,
+                    tools,
+                }
+            }
+            None => classify_failure(&line),
+        },
+        Ok(None) => match try_wait_bounded(child, EXIT_GRACE_MS) {
+            Ok(Some(status)) => Probe::Unreachable(exit_message(status, err_rx)),
+            _ => Probe::Reachable("closed stdout without an MCP response".into()),
+        },
+        Err(_) => match child.try_wait() {
+            Ok(Some(status)) => Probe::Unreachable(exit_message(status, err_rx)),
+            _ => Probe::Reachable(
+                "no MCP initialize response within 3s (slow startup is common)".into(),
+            ),
+        },
+    }
+}
+
 fn exit_message(
     status: std::process::ExitStatus,
     err_rx: &std::sync::mpsc::Receiver<String>,
 ) -> String {
-    let mut msg = format!("process exited with {status} before answering MCP initialize");
+    let mut msg = format!("process exited with {status} before answering the MCP probe");
     let tail = err_rx
         .recv_timeout(Duration::from_millis(STDERR_HANDOFF_MS))
         .unwrap_or_default();
@@ -342,6 +442,8 @@ mod tests {
 
     #[test]
     fn stdio_handshake_verifies_mcp_response() {
+        let legacy_err =
+            r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}"#;
         let init = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"mock","version":"1.0"}}}"#;
         let tools = r#"{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"a"},{"name":"b"}]}}"#;
         let transport = Transport::Stdio {
@@ -349,7 +451,7 @@ mod tests {
             args: vec![
                 "-c".into(),
                 format!(
-                    "read a; printf '%s\\n' '{init}'; read b; read c; printf '%s\\n' '{tools}'"
+                    "read a; printf '%s\\n' '{legacy_err}'; read b; printf '%s\\n' '{init}'; read c; read d; printf '%s\\n' '{tools}'"
                 ),
             ],
             env: BTreeMap::new(),
@@ -370,12 +472,16 @@ mod tests {
 
     #[test]
     fn stdio_handshake_skips_banner_lines() {
-        let resp = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"banner","version":"1.0"}}}"#;
+        let legacy_err =
+            r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}"#;
+        let init = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"banner","version":"1.0"}}}"#;
         let transport = Transport::Stdio {
             command: "sh".into(),
             args: vec![
                 "-c".into(),
-                format!("read line; echo 'starting up...'; printf '%s\\n' '{resp}'"),
+                format!(
+                    "read a; printf '%s\\n' '{legacy_err}'; echo 'starting up...'; read b; printf '%s\\n' '{init}'; read c; read d"
+                ),
             ],
             env: BTreeMap::new(),
         };
@@ -409,19 +515,58 @@ mod tests {
 
     #[test]
     fn stdio_handshake_reports_jsonrpc_error() {
+        let legacy_err =
+            r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}"#;
+        let boom = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"boom"}}"#;
         let transport = Transport::Stdio {
             command: "sh".into(),
             args: vec![
                 "-c".into(),
-                r#"read line; printf '%s
-' '{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"boom"}}'"#
-                    .into(),
+                format!("read a; printf '%s\\n' '{legacy_err}'; read b; printf '%s\\n' '{boom}'"),
             ],
             env: BTreeMap::new(),
         };
         match probe_transport(&transport) {
             Probe::Reachable(msg) => assert!(msg.contains("boom"), "{msg}"),
             other => panic!("expected Reachable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stdio_discover_reports_modern_server() {
+        let discover_result = r#"{"jsonrpc":"2.0","id":1,"result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"tools":{}},"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"ExampleServer","version":"1.0.0"}}}}"#;
+        let transport = Transport::Stdio {
+            command: "sh".into(),
+            args: vec![
+                "-c".into(),
+                format!("read a; printf '%s\\n' '{discover_result}'"),
+            ],
+            env: BTreeMap::new(),
+        };
+        match probe_transport(&transport) {
+            Probe::ModernOk { server, versions } => {
+                assert_eq!(server, "ExampleServer");
+                assert_eq!(versions, vec!["2026-07-28".to_string()]);
+            }
+            other => panic!("expected ModernOk, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stdio_discover_unsupported_version_reports_modern() {
+        let err = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32022,"message":"Unsupported protocol version","data":{"supported":["2026-07-28","2025-11-25"],"requested":"1900-01-01"}}}"#;
+        let transport = Transport::Stdio {
+            command: "sh".into(),
+            args: vec!["-c".into(), format!("read a; printf '%s\\n' '{err}'")],
+            env: BTreeMap::new(),
+        };
+        match probe_transport(&transport) {
+            Probe::ModernOk { server, versions } => {
+                assert_eq!(server, "unknown");
+                assert_eq!(versions.len(), 2);
+                assert!(versions.contains(&"2026-07-28".to_string()));
+            }
+            other => panic!("expected ModernOk, got {other:?}"),
         }
     }
 
