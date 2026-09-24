@@ -75,7 +75,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **92 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 16 tools
+- ✅ **92 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 17 tools
 
 ## Supported tools
 
@@ -97,6 +97,7 @@ doesn't own, always atomically, always with an automatic backup first.
 | TRAE | platform app-support dir → `User/mcp.json` → `mcpServers` | JSON | ✅ |
 | Antigravity | `~/.gemini/config/mcp_config.json` → `mcpServers` (`serverUrl`) | JSON | ✅ |
 | LM Studio | `~/.lmstudio/mcp.json` → `mcpServers` | JSON | ✅ |
+| Continue | `~/.continue/mcpServers/mcp.json` → `mcpServers` (JSON drop-in) | JSON | ✅ |
 
 Claude Code's `CLAUDE_CONFIG_DIR` and Codex's `CODEX_HOME` environment
 overrides are respected. Point `HOME`/`USERPROFILE` at another machine's home

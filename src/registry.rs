@@ -25,6 +25,7 @@ pub(crate) enum ToolId {
     Trae,
     Antigravity,
     LmStudio,
+    Continue,
 }
 
 impl ToolId {
@@ -47,6 +48,7 @@ impl ToolId {
             Self::Trae => "trae",
             Self::Antigravity => "antigravity",
             Self::LmStudio => "lm-studio",
+            Self::Continue => "continue",
         }
     }
 }
@@ -320,6 +322,20 @@ static REGISTRY: &[ToolSpec] = &[
         project_path: None,
         path: |home, _| home.join(".lmstudio").join("mcp.json"),
     },
+    ToolSpec {
+        id: ToolId::Continue,
+        display: "Continue",
+        format: Format::McpServers,
+        writable: true,
+        disable: None,
+        project_path: Some(|project| {
+            project
+                .join(".continue")
+                .join("mcpServers")
+                .join("mcp.json")
+        }),
+        path: |home, _| home.join(".continue").join("mcpServers").join("mcp.json"),
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -360,7 +376,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 16);
+        assert_eq!(registry().len(), 17);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }

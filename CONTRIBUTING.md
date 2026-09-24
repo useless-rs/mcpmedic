@@ -259,3 +259,11 @@ One line per improvement cycle: date, what changed, why.
   changes since v0.3.0: doctor --probe, sync-all, summary, LM Studio.
   crates.io validated via cargo package (139 KB) but publish requires a
   token the owner must provide: `cargo login <TOKEN>` + `cargo publish`.
+- **2026-09-24 · cycle 24 — Continue added (17 tools).** Continue dev
+  IDE: ~/.continue/mcpServers/mcp.json — Continue's JSON drop-in
+  compatibility mode (it auto-picks up standard `mcpServers` JSON files,
+  the same format as Claude Desktop, Cursor, and Cline). Project-scoped
+  at .continue/mcpServers/mcp.json. Continue's primary config is YAML
+  (config.yaml with mcpServers as a list, not a map) — the JSON drop-in
+  is the documented compatibility path for users coming from other tools.
+  92 tests.
