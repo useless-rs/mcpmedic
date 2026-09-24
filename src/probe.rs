@@ -12,6 +12,8 @@ use crate::model::Transport;
 const HANDSHAKE_TIMEOUT_MS: u64 = 3000;
 const TOOLS_TIMEOUT_MS: u64 = 2000;
 const EXIT_GRACE_MS: u64 = 500;
+const STDERR_TAIL_CHARS: usize = 300;
+const STDERR_HANDOFF_MS: u64 = 150;
 const TCP_TIMEOUT_SECS: u64 = 3;
 
 /// Result of a reachability probe on one server.
@@ -81,6 +83,26 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
         let _ = tx.send(None);
     });
 
+    let stderr = child.stderr.take();
+    let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
+    std::thread::spawn(move || {
+        let mut tail = String::new();
+        if let Some(err) = stderr {
+            for line in std::io::BufReader::new(err).lines() {
+                let Ok(line) = line else { break };
+                let trimmed = line.trim();
+                if trimmed.is_empty() || tail.len() >= STDERR_TAIL_CHARS {
+                    continue;
+                }
+                if !tail.is_empty() {
+                    tail.push_str(" | ");
+                }
+                tail.push_str(trimmed);
+            }
+        }
+        let _ = err_tx.send(tail);
+    });
+
     let verdict = match rx.recv_timeout(Duration::from_millis(HANDSHAKE_TIMEOUT_MS)) {
         Ok(Some(line)) => match parse_success(&line) {
             Some((server, protocol)) => {
@@ -94,15 +116,11 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
             None => classify_failure(&line),
         },
         Ok(None) => match try_wait_bounded(&mut child, EXIT_GRACE_MS) {
-            Ok(Some(status)) => Probe::Unreachable(format!(
-                "process exited with {status} before answering MCP initialize"
-            )),
+            Ok(Some(status)) => Probe::Unreachable(exit_message(status, &err_rx)),
             _ => Probe::Reachable("closed stdout without an MCP response".into()),
         },
         Err(_) => match child.try_wait() {
-            Ok(Some(status)) => Probe::Unreachable(format!(
-                "process exited with {status} before answering MCP initialize"
-            )),
+            Ok(Some(status)) => Probe::Unreachable(exit_message(status, &err_rx)),
             _ => Probe::Reachable(
                 "no MCP initialize response within 3s (slow startup is common)".into(),
             ),
@@ -130,6 +148,21 @@ fn try_wait_bounded(
         }
         std::thread::sleep(Duration::from_millis(10));
     }
+}
+
+fn exit_message(
+    status: std::process::ExitStatus,
+    err_rx: &std::sync::mpsc::Receiver<String>,
+) -> String {
+    let mut msg = format!("process exited with {status} before answering MCP initialize");
+    let tail = err_rx
+        .recv_timeout(Duration::from_millis(STDERR_HANDOFF_MS))
+        .unwrap_or_default();
+    if !tail.is_empty() {
+        msg.push_str(" — stderr: ");
+        msg.push_str(&tail);
+    }
+    msg
 }
 
 fn initialize_message() -> String {
@@ -389,6 +422,25 @@ mod tests {
         match probe_transport(&transport) {
             Probe::Reachable(msg) => assert!(msg.contains("boom"), "{msg}"),
             other => panic!("expected Reachable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stdio_probe_includes_stderr_tail() {
+        let transport = Transport::Stdio {
+            command: "sh".into(),
+            args: vec![
+                "-c".into(),
+                "echo 'fatal: missing module' >&2; exit 3".into(),
+            ],
+            env: BTreeMap::new(),
+        };
+        match probe_transport(&transport) {
+            Probe::Unreachable(msg) => {
+                assert!(msg.contains("exited"), "{msg}");
+                assert!(msg.contains("fatal: missing module"), "{msg}");
+            }
+            other => panic!("expected Unreachable, got {other:?}"),
         }
     }
 

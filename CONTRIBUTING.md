@@ -343,3 +343,16 @@ One line per improvement cycle: date, what changed, why.
   2s deadline. Best-effort: a server that exits or stays silent after
   initialize is still McpOk, just without the count. 105 tests
   (65 unit + 40 e2e).
+- **2026-09-24 · cycle 32 — stderr tail capture.** When a stdio server
+  exits during the probe, its stderr output is now included in the
+  finding — "unreachable: process exited with status 3 before
+  answering MCP initialize — stderr: fatal: missing module" — so users
+  see the real failure cause (missing dependency, missing credentials,
+  bad path) instead of a bare exit code. A collector thread drains the
+  child's stderr into a capped tail (300 chars, lines joined with
+  " | "); the exit-confirmed paths receive it via a channel handoff
+  (150ms budget, best-effort — orphaned grandchildren holding the
+  pipe simply yield no tail). Live-but-silent servers are unaffected.
+  Per the anthropics/claude-code#64541 "silent no-spawn" report, this
+  is the difference between guessing and knowing. 106 tests
+  (66 unit + 40 e2e).

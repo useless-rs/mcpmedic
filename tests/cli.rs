@@ -1136,7 +1136,7 @@ fn doctor_probe_reports_mcp_handshake() {
     let script =
         format!("read a; printf '%s\\n' '{init}'; read b; read c; printf '%s\\n' '{tools}'");
     let cfg = format!(
-        r#"{{"mcpServers":{{"mock":{{"command":"sh","args":["-c",{}]}},"broken":{{"command":"definitely-missing-cmd-xyz","args":[]}}}}}}"#,
+        r#"{{"mcpServers":{{"mock":{{"command":"sh","args":["-c",{}]}},"broken":{{"command":"definitely-missing-cmd-xyz","args":[]}},"noisy":{{"command":"sh","args":["-c","echo boom detail >&2; exit 1"]}}}}}}"#,
         serde_json::to_string(&script).unwrap()
     );
     std::fs::write(home.join(".claude.json"), cfg).unwrap();
@@ -1153,6 +1153,10 @@ fn doctor_probe_reports_mcp_handshake() {
     assert!(
         stdout.contains("definitely-missing-cmd-xyz") || stdout.contains("unreachable"),
         "unreachable finding missing: {stdout}"
+    );
+    assert!(
+        stdout.contains("boom detail"),
+        "stderr tail missing: {stdout}"
     );
 }
 
