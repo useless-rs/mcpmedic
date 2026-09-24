@@ -236,13 +236,13 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 
 | Command | What it does |
 |---|---|
-| `scan` (default) | Detect installed tools and their configs, with server counts |
+| `scan` (default) | Detect installed tools and their configs, with server counts; `--quiet` drops the brand header and hints |
 | `init` | One-shot onboarding: detect every configured tool, pick the richest as the source, sync it to every other installed tool. With `--json`: print the plan only, no files touched |
 | `preset list` / `preset add <name> --to <t> [--force] [--dry-run]` | Curated zero-config bundles: `minimal` (memory + sequential-thinking) and `demo` (the official everything test server). Skips existing servers unless `--force` |
 | `list [--tool <t>]` | Table of every server per tool |
 | `show <name>` | Every tool that configures a given server + drift check |
 | `doctor [--tool <t>] [--strict] [--fix] [--probe] [--probe-timeout <ms>] [--explain]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat, unset `${VAR}` env references (e.g. `${GITHUB_TOKEN}` or `${env:API_KEY}` referenced in `env`/`headers` but not present in the environment), npx footguns (missing `-y` hang risk, `@latest` registry round-trips). `--fix` applies safe auto-repairs — including inserting the missing `npx -y` (`--dry-run` previews); `--probe` speaks MCP (probes run in parallel): stdio servers get a real initialize handshake plus a tools/list query — reporting the server's name, protocol version and exposed tool count; modern (2026-07-28-era) servers are identified via server/discover with the same name, version and tool count reporting; a crashed server surfaces its stderr tail (the real failure cause); remotes get a TCP connect; `--probe-timeout <ms>` raises the per-exchange budget for slow cold starts (npx/uvx package downloads can take 60s+); `--explain` prints how-to-fix hints per category (`--json` findings carry a `fix` field) |
-| `diff <a> <b>` | Server drift between two tools; with `--json`: the drift buckets as one machine-readable document with an `in_sync` flag |
+| `diff <a> <b> [--exit-code]` | Server drift between two tools; with `--json`: the drift buckets as one machine-readable document with an `in_sync` flag; `--exit-code` exits 1 on drift for CI |
 | `add <name> --to <t> ...` | Add a stdio (`--command ... -- args`) or remote (`--url`) server |
 | `rm <name> --from <t>` | Remove one server |
 | `enable` / `disable` <name> --from <t> | Park or resume a server without removing it, using the tool's own documented disable switch (`--dry-run` supported) |
@@ -253,7 +253,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `audit [--tool <t>]` | Security audit: hardcoded secrets in env/header values (known token formats + entropy heuristic), config file permissions |
 | `completions <shell>` | Print completions for bash, zsh, fish, elvish or powershell |
 | `backup [--tool <t>]` | Manual backup (also automatic before every mutation) |
-| `restore [--tool <t>] [--list] [--latest]` | Restore configs from automatic backups; the current state is backed up first, so restores are reversible |
+| `restore [--tool <t>] [--list] [--latest] [--dry-run]` | Restore configs from automatic backups; the current state is backed up first, so restores are reversible; `--dry-run` (with `--latest`) previews without writing |
 | `summary` | One-line health overview (tools, servers, findings) for shell prompts and CI gates; exits 1 on criticals |
 | `edit <tool> [--print]` | Open a tool's config file in your editor (`$VISUAL` → `$EDITOR`, else vi/notepad); `--print` shows the resolved path instead |
 
