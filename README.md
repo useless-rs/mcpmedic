@@ -250,7 +250,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `sync-all --from <a>` | Mirror one tool into every other detected tool (one-to-many); `--force`, `--names`, `--dry-run` supported |
 | `export [--out <file>] [--tool <t>]` | Dump discovered servers to portable JSON (or stdout); `--tool` limits to one tool |
 | `import <file> [--to <t>]` | Restore an export (per-tool sections or flat `servers` map) |
-| `audit [--tool <t>]` | Security audit: hardcoded secrets in env/header values (known token formats + entropy heuristic), config file permissions |
+| `audit [--tool <t>] [--strict]` | Security audit: hardcoded secrets in env/header values (known token formats + entropy heuristic), config file permissions; `--strict` also fails on permission warnings |
 | `completions <shell>` | Print completions for bash, zsh, fish, elvish or powershell |
 | `backup [--tool <t>]` | Manual backup (also automatic before every mutation) |
 | `restore [--tool <t>] [--list] [--latest] [--dry-run]` | Restore configs from automatic backups; the current state is backed up first, so restores are reversible; `--dry-run` (with `--latest`) previews without writing |
