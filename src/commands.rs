@@ -1989,8 +1989,12 @@ fn cmd_sync_all(ctx: &Ctx, from: &str, names: &[String], force: bool, dry_run: b
 
     let mut synced = 0;
     for target_spec in targets {
-        let Ok((mut target, _)) = load_mutable(ctx, target_spec) else {
-            continue;
+        let (mut target, _) = match load_mutable(ctx, target_spec) {
+            Ok(pair) => pair,
+            Err(e) => {
+                println!("  ~ {} skipped: {e}", target_spec.display);
+                continue;
+            }
         };
         let plan = sync::plan(&source_servers, &target.servers, names, force);
         if plan.to_add.is_empty() {

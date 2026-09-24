@@ -1546,6 +1546,16 @@ fn diff_exit_code_gates_on_drift() {
 }
 
 #[test]
+fn sync_all_reports_unwritable_targets() {
+    let home = sample_home("sync-all-skip");
+    write(&home, ".codeium/windsurf/mcp_config.json", "{broken json");
+    let out = run(&home, &["sync-all", "--from", "cursor", "--dry-run"]);
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+    assert!(stdout(&out).contains("skipped"), "got: {}", stdout(&out));
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn restore_dry_run_touches_nothing() {
     let home = sample_home("restore-dry");
     let added = run(
