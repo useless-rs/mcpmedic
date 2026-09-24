@@ -14,7 +14,8 @@ use crate::format_json;
 use crate::model::Transport;
 use crate::registry::{self, ToolId, ToolSpec};
 use crate::report;
-use crate::store::{self, ConfigState, backups_dir};
+use crate::store::{self, ConfigState};
+use crate::store_backups::{backups_dir, list_backups};
 
 /// The portable interchange dialect for export/import: Claude Code's remote
 /// shape (`type: "http"` + `url`), the most widely compatible spelling.
@@ -184,15 +185,12 @@ pub(crate) fn cmd_restore(
     latest: bool,
     dry_run: bool,
 ) -> ExitCode {
-    let backups = store::list_backups(&ctx.home);
+    let backups = list_backups(&ctx.home);
 
     if list || !latest {
         println!("{}", report::header("Available backups"));
         if backups.is_empty() {
-            println!(
-                "  no backups found in {}",
-                store::backups_dir(&ctx.home).display()
-            );
+            println!("  no backups found in {}", backups_dir(&ctx.home).display());
             println!("  backups are created automatically before every mcpmedic edit");
             return ExitCode::SUCCESS;
         }

@@ -36,6 +36,7 @@ mod registry;
 mod registry_tools;
 mod report;
 mod store;
+mod store_backups;
 mod sync;
 mod yaml;
 mod yaml_flow;
