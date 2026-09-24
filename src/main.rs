@@ -20,6 +20,7 @@ mod diff;
 mod doctor;
 mod format;
 mod format_fix;
+mod format_json;
 mod format_jsonc;
 mod format_toml;
 mod format_yaml;

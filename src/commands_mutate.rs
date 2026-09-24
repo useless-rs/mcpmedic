@@ -10,8 +10,9 @@ use std::process::ExitCode;
 use serde_json::{Value, json};
 
 use crate::commands_ctx::{Ctx, commit, display_path, fail, print_json, resolve};
-use crate::format::{self, Format};
+use crate::format::Format;
 use crate::format_fix;
+use crate::format_json;
 use crate::format_toml;
 use crate::model::{Servers, Transport};
 use crate::registry::ToolSpec;
@@ -99,7 +100,9 @@ pub(crate) fn write_entry(
     transport: &Transport,
 ) -> Result<(), String> {
     match raw {
-        RawDoc::Json(doc) => format::write_json_entry(spec.format, spec.id, doc, name, transport),
+        RawDoc::Json(doc) => {
+            format_json::write_json_entry(spec.format, spec.id, doc, name, transport)
+        }
         RawDoc::Toml(doc) => format_toml::write_toml_entry(doc, name, transport),
     }
 }
@@ -110,7 +113,7 @@ pub(crate) fn remove_entry(
     name: &str,
 ) -> Result<bool, String> {
     match raw {
-        RawDoc::Json(doc) => Ok(format::remove_json_entry(spec_format, doc, name)),
+        RawDoc::Json(doc) => Ok(format_json::remove_json_entry(spec_format, doc, name)),
         RawDoc::Toml(doc) => format_toml::remove_toml_entry(doc, name),
     }
 }

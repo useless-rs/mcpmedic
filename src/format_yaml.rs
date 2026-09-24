@@ -1,6 +1,6 @@
 //! YAML bridge: extract servers from list-shaped YAML sections (Goose
 //! `extensions`, Continue `config.yaml` `mcpServers`) by normalizing items
-//! into the shape [`crate::format::parse_json_entry`] understands.
+//! into the shape [`crate::format_json::parse_json_entry`] understands.
 //!
 //! Split out of [`crate::format`].
 
@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use serde_json::{Map, Value};
 
-use crate::format::parse_json_entry;
+use crate::format_json::parse_json_entry;
 use crate::model::Servers;
 use crate::registry::{DisableFlag, ToolId};
 

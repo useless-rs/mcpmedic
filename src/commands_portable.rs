@@ -9,7 +9,8 @@ use serde_json::{Value, json};
 
 use crate::commands_ctx::{Ctx, commit, fail, resolve};
 use crate::commands_mutate::{load_mutable, write_entry};
-use crate::format::{self, Format};
+use crate::format::Format;
+use crate::format_json;
 use crate::model::Transport;
 use crate::registry::{self, ToolId, ToolSpec};
 use crate::report;
@@ -18,7 +19,7 @@ use crate::store::{self, ConfigState, backups_dir};
 /// The portable interchange dialect for export/import: Claude Code's remote
 /// shape (`type: "http"` + `url`), the most widely compatible spelling.
 pub(crate) fn portable_entry(transport: &Transport) -> Value {
-    format::build_json_entry(Format::McpServers, ToolId::ClaudeCode, transport)
+    format_json::build_json_entry(Format::McpServers, ToolId::ClaudeCode, transport)
 }
 
 pub(crate) fn cmd_export(ctx: &Ctx, out: Option<PathBuf>, tool: Option<&str>) -> ExitCode {
@@ -168,7 +169,7 @@ pub(crate) fn cmd_import(ctx: &Ctx, file: &Path, to: Option<&str>, dry_run: bool
 pub(crate) fn parse_export_map(map: &serde_json::Map<String, Value>) -> Vec<(String, Transport)> {
     let mut out = Vec::new();
     for (name, entry) in map {
-        match format::parse_json_entry(entry) {
+        match format_json::parse_json_entry(entry) {
             Ok(transport) => out.push((name.clone(), transport)),
             Err(msg) => println!("  {} `{name}`: {msg}", report::glyph_warn()),
         }

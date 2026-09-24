@@ -10,7 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 
-use crate::format::{self, Format};
+use crate::format::Format;
+use crate::format_json;
 use crate::format_jsonc;
 use crate::format_toml;
 use crate::format_yaml;
@@ -146,16 +147,16 @@ pub(crate) fn load(spec: &ToolSpec, path: &Path) -> ConfigState {
 
 fn read_json_servers(format: Format, doc: &Value) -> (Servers, Vec<String>) {
     match format {
-        Format::Opencode => format::opencode_servers(doc),
-        Format::OpenClaw => format::openclaw_servers(doc),
-        _ => format::json_servers(format, doc),
+        Format::Opencode => format_json::opencode_servers(doc),
+        Format::OpenClaw => format_json::openclaw_servers(doc),
+        _ => format_json::json_servers(format, doc),
     }
 }
 
 fn disabled_set(spec: &ToolSpec, doc: &Value) -> BTreeSet<String> {
     match (spec.disable.as_ref(), spec.format) {
-        (Some(flag), Format::OpenClaw) => format::openclaw_disabled(flag, doc),
-        (Some(flag), _) => format::json_disabled(flag, spec.format, doc),
+        (Some(flag), Format::OpenClaw) => format_json::openclaw_disabled(flag, doc),
+        (Some(flag), _) => format_json::json_disabled(flag, spec.format, doc),
         (None, _) => BTreeSet::new(),
     }
 }
