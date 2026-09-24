@@ -133,7 +133,7 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
             explain,
             probe_timeout,
         ),
-        Cmd::Diff { a, b } => cmd_diff(&ctx, &a, &b),
+        Cmd::Diff { a, b, exit_code } => cmd_diff(&ctx, &a, &b, exit_code),
         Cmd::Add {
             name,
             to,
@@ -1060,7 +1060,7 @@ fn severity_label(severity: Severity) -> &'static str {
     }
 }
 
-fn cmd_diff(ctx: &Ctx, a: &str, b: &str) -> ExitCode {
+fn cmd_diff(ctx: &Ctx, a: &str, b: &str, exit_code: bool) -> ExitCode {
     let (Ok(spec_a), Ok(spec_b)) = (resolve(a), resolve(b)) else {
         return fail(&format!("unknown tool in `mcpmedic diff {a} {b}`"));
     };
@@ -1108,7 +1108,7 @@ fn cmd_diff(ctx: &Ctx, a: &str, b: &str) -> ExitCode {
             "identical": result.identical,
             "in_sync": in_sync,
         }));
-        return ExitCode::SUCCESS;
+        return drift_exit(in_sync, exit_code);
     }
 
     println!(
@@ -1137,10 +1137,22 @@ fn cmd_diff(ctx: &Ctx, a: &str, b: &str) -> ExitCode {
         }
     }
     println!("  = identical servers: {}", result.identical);
-    if result.only_a.is_empty() && result.only_b.is_empty() && result.different.is_empty() {
+    let in_sync =
+        result.only_a.is_empty() && result.only_b.is_empty() && result.different.is_empty();
+    if in_sync {
         println!("  ✓ no drift — both tools are in sync");
     }
-    ExitCode::SUCCESS
+    drift_exit(in_sync, exit_code)
+}
+
+/// Map drift state to an exit code: 0 normally, 1 when `--exit-code` is set
+/// and the two tools disagree — so dotfile CI can gate on tool parity.
+fn drift_exit(in_sync: bool, exit_code: bool) -> ExitCode {
+    if exit_code && !in_sync {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 // ---------------------------------------------------------------------------

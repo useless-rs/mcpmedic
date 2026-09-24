@@ -119,6 +119,9 @@ pub(crate) enum Cmd {
         a: String,
         /// Second tool (id or display name).
         b: String,
+        /// Exit 1 when drift is found, so CI can gate on tool parity.
+        #[arg(long)]
+        exit_code: bool,
     },
 
     /// Add a server to a tool's config.
