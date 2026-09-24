@@ -1,6 +1,6 @@
 [package]
 name = "mcpmedic"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2024"
 rust-version = "1.85"
 description = "First aid for MCP configs: scan, doctor, diff and sync MCP servers across every AI tool you use."

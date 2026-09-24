@@ -495,3 +495,18 @@ One line per improvement cycle: date, what changed, why.
   `doctor --fix`. JSON findings now carry a per-finding `fix` field
   unconditionally (the fixmcp machine-actionable pattern). Hints
   are deduplicated per run. 116 tests (71 unit + 45 e2e).
+- **2026-09-24 · cycle 45 — v0.11.0 released.** Version bump
+  0.10.0 → 0.11.0 shipping two features: OpenHands and Devin CLI
+  (24 → 26 tools — ~/.openhands/mcp.json and
+  ~/.config/devin/config.json + project .devin/config.json, both
+  standard mcpServers verified against first-party docs) and
+  doctor --explain (a how-to-fix section after the findings, keyed
+  by the problem categories present — every finding class with a
+  repair gets the exact repair path; JSON findings carry a
+  per-finding fix field). 5-platform binaries, Homebrew tap updated
+  with v0.11.0 sha256 hashes. 116 tests (71 unit + 45 e2e).
+  Roadmap note: research confirmed OpenClaw (~/.openclaw/
+  openclaw.json, JSON5, nested mcp.servers, documented
+  enabled:false flag, streamable-http transport dialect) as the
+  next — likely last — registry candidate; Pi Agent's settings
+  docs show no mcpServers block (MCP via extensions), skipped.
