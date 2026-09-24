@@ -7,6 +7,7 @@
 
 mod audit;
 mod cli;
+mod cli_cmd;
 mod commands;
 mod commands_audit;
 mod commands_ctx;

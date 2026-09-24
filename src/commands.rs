@@ -5,7 +5,7 @@ use std::process::ExitCode;
 use clap::CommandFactory;
 use serde_json::json;
 
-use crate::cli::Cmd;
+use crate::cli_cmd::Cmd;
 use crate::commands_audit::cmd_audit;
 use crate::commands_ctx::{Ctx, display_path, fail, print_json, resolve};
 use crate::commands_diff::cmd_diff;
@@ -26,8 +26,8 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
         Cmd::Scan => cmd_scan(&ctx),
         Cmd::Init => cmd_init(&ctx),
         Cmd::Preset { action } => match action {
-            crate::cli::PresetAction::List => cmd_preset_list(&ctx),
-            crate::cli::PresetAction::Add {
+            crate::cli_cmd::PresetAction::List => cmd_preset_list(&ctx),
+            crate::cli_cmd::PresetAction::Add {
                 name,
                 to,
                 force,
