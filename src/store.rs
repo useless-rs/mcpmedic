@@ -90,9 +90,7 @@ pub(crate) fn load(spec: &ToolSpec, path: &Path) -> ConfigState {
     match serde_json::from_str::<Value>(&contents) {
         Ok(doc) => {
             let (servers, problems) = read_json_servers(spec.format, &doc);
-            let disabled = spec.disable.as_ref().map_or_else(BTreeSet::new, |flag| {
-                format::json_disabled(flag, spec.format, &doc)
-            });
+            let disabled = disabled_set(spec, &doc);
             ConfigState::Loaded(Box::new(LoadedConfig {
                 raw: RawDoc::Json(doc),
                 servers,
@@ -109,9 +107,7 @@ pub(crate) fn load(spec: &ToolSpec, path: &Path) -> ConfigState {
             match serde_json::from_str::<Value>(&stripped) {
                 Ok(doc) => {
                     let (servers, problems) = read_json_servers(spec.format, &doc);
-                    let disabled = spec.disable.as_ref().map_or_else(BTreeSet::new, |flag| {
-                        format::json_disabled(flag, spec.format, &doc)
-                    });
+                    let disabled = disabled_set(spec, &doc);
                     ConfigState::Loaded(Box::new(LoadedConfig {
                         raw: RawDoc::Json(doc),
                         servers,
@@ -129,7 +125,16 @@ pub(crate) fn load(spec: &ToolSpec, path: &Path) -> ConfigState {
 fn read_json_servers(format: Format, doc: &Value) -> (Servers, Vec<String>) {
     match format {
         Format::Opencode => format::opencode_servers(doc),
+        Format::OpenClaw => format::openclaw_servers(doc),
         _ => format::json_servers(format, doc),
+    }
+}
+
+fn disabled_set(spec: &ToolSpec, doc: &Value) -> BTreeSet<String> {
+    match (spec.disable.as_ref(), spec.format) {
+        (Some(flag), Format::OpenClaw) => format::openclaw_disabled(flag, doc),
+        (Some(flag), _) => format::json_disabled(flag, spec.format, doc),
+        (None, _) => BTreeSet::new(),
     }
 }
 

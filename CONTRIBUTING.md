@@ -510,3 +510,19 @@ One line per improvement cycle: date, what changed, why.
   enabled:false flag, streamable-http transport dialect) as the
   next — likely last — registry candidate; Pi Agent's settings
   docs show no mcpServers block (MCP via extensions), skipped.
+- **2026-09-24 · cycle 46 — OpenClaw added (27 tools).** The
+  OpenClaw personal-assistant gateway: ~/.openclaw/openclaw.json,
+  JSON5, MCP servers under a nested mcp.servers block — read-only
+  support following the opencode precedent (JSON5 comments and
+  bare keys are legal; a JSON rewrite would destroy them, and the
+  strict parse failure falls into the generic jsonc_strip fallback
+  which forces read-only anyway). Documented `enabled: false`
+  disable flag read via a nested openclaw_disabled helper wired
+  through a new disabled_set dispatcher in store.rs; remotes with
+  `transport: "streamable-http"` parse through the generic
+  url-field reader. read_json_servers gained the OpenClaw branch;
+  json_snippet joined OpenClaw to Crush's "mcp" arm (dead code —
+  OpenClaw is read-only, snippets only follow writes). Pi Agent
+  was researched and skipped (its settings docs show no
+  mcpServers block — MCP loads via extensions). 118 tests
+  (72 unit + 46 e2e).

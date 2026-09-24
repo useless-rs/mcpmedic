@@ -77,7 +77,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **114 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 26 tools
+- ✅ **114 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 27 tools
 
 ## Supported tools
 
@@ -109,6 +109,7 @@ doesn't own, always atomically, always with an automatic backup first.
 | Crush | `~/.config/crush/crush.json` → `mcp`; project `crush.json` | JSON | ✅ |
 | OpenHands | `~/.openhands/mcp.json` → `mcpServers` | JSON | ✅ |
 | Devin CLI | `~/.config/devin/config.json` → `mcpServers`; project `.devin/config.json` | JSON | ✅ |
+| OpenClaw | `~/.openclaw/openclaw.json` → `mcp.servers` | JSON5 | 👁 read-only |
 
 Claude Code's `CLAUDE_CONFIG_DIR` and Codex's `CODEX_HOME` environment
 overrides are respected. Point `HOME`/`USERPROFILE` at another machine's home

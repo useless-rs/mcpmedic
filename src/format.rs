@@ -28,6 +28,8 @@ pub(crate) enum Format {
     Amp,
     /// Crush `crush.json`: `mcp` key with explicit `type` fields.
     Crush,
+    /// `OpenClaw` `openclaw.json`: JSON5, nested `mcp.servers` (read-only).
+    OpenClaw,
 }
 
 impl Format {
@@ -37,7 +39,7 @@ impl Format {
             Self::McpServers => Some("mcpServers"),
             Self::Vscode => Some("servers"),
             Self::Zed => Some("context_servers"),
-            Self::CodexToml | Self::Opencode => None,
+            Self::CodexToml | Self::Opencode | Self::OpenClaw => None,
             Self::Amp => Some("amp.mcpServers"),
             Self::Crush => Some("mcp"),
         }
@@ -57,6 +59,13 @@ pub(crate) fn json_servers(format: Format, doc: &Value) -> (Servers, Vec<String>
 
 /// opencode keeps servers under `mcp` — either flat (v1) or nested under
 /// `mcp.servers` (v2). Support both when reading.
+pub(crate) fn openclaw_servers(doc: &Value) -> (Servers, Vec<String>) {
+    let Some(Value::Object(map)) = doc.get("mcp").and_then(|m| m.get("servers")) else {
+        return (Servers::new(), Vec::new());
+    };
+    json_entries(map)
+}
+
 pub(crate) fn opencode_servers(doc: &Value) -> (Servers, Vec<String>) {
     let mut servers = Servers::new();
     let mut problems = Vec::new();
@@ -337,6 +346,21 @@ pub(crate) fn json_disabled(flag: &DisableFlag, format: Format, doc: &Value) -> 
     out
 }
 
+pub(crate) fn openclaw_disabled(flag: &DisableFlag, doc: &Value) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    let Some(Value::Object(servers)) = doc.get("mcp").and_then(|m| m.get("servers")) else {
+        return out;
+    };
+    for (name, entry) in servers {
+        if let Value::Object(obj) = entry {
+            if obj.get(flag.key).and_then(Value::as_bool) == Some(flag.off_when) {
+                out.insert(name.clone());
+            }
+        }
+    }
+    out
+}
+
 /// Park or resume a server by writing its disable flag, preserving every
 /// other field of the entry. Returns whether the named server exists.
 pub(crate) fn set_json_disabled(
@@ -588,7 +612,11 @@ pub(crate) fn fix_json_config(tool: ToolId, format: Format, doc: &mut Value) -> 
                     _ => {}
                 }
             }
-            Format::CodexToml | Format::Opencode | Format::Amp | Format::Crush => {}
+            Format::CodexToml
+            | Format::Opencode
+            | Format::Amp
+            | Format::Crush
+            | Format::OpenClaw => {}
         }
     }
     fixes
@@ -1360,6 +1388,34 @@ args = ["server.js"]
         let (servers2, _) = toml_servers(&reparsed);
         assert_eq!(servers2.len(), 1);
         assert!(servers2.contains_key("added"));
+    }
+
+    #[test]
+    fn openclaw_reads_nested_mcp_servers() {
+        let doc = json!({
+            "mcp": {
+                "servers": {
+                    "docs": {"command": "uvx", "args": ["mcp-server-fetch"]},
+                    "remote": {
+                        "url": "https://example.com/mcp",
+                        "transport": "streamable-http"
+                    },
+                    "parked": {"command": "npx", "args": ["-y", "x"], "enabled": false}
+                }
+            }
+        });
+        let (servers, problems) = openclaw_servers(&doc);
+        assert!(problems.is_empty(), "{problems:?}");
+        assert_eq!(servers.len(), 3);
+        assert!(servers.contains_key("docs"));
+        assert!(servers.contains_key("remote"));
+        let flag = DisableFlag {
+            key: "enabled",
+            off_when: false,
+        };
+        let disabled = openclaw_disabled(&flag, &doc);
+        assert!(disabled.contains("parked"), "{disabled:?}");
+        assert!(!disabled.contains("docs"), "{disabled:?}");
     }
 
     #[test]

@@ -35,6 +35,7 @@ pub(crate) enum ToolId {
     Crush,
     OpenHands,
     Devin,
+    OpenClaw,
 }
 
 impl ToolId {
@@ -67,6 +68,7 @@ impl ToolId {
             Self::Crush => "crush",
             Self::OpenHands => "openhands",
             Self::Devin => "devin",
+            Self::OpenClaw => "openclaw",
         }
     }
 }
@@ -444,6 +446,21 @@ static REGISTRY: &[ToolSpec] = &[
         project_path: Some(|project| project.join(".devin").join("config.json")),
         path: |home, _| home.join(".config").join("devin").join("config.json"),
     },
+    ToolSpec {
+        id: ToolId::OpenClaw,
+        display: "OpenClaw",
+        format: Format::OpenClaw,
+        // Read-only like opencode: the config is JSON5 (comments and bare
+        // keys are legal, and comments would be lost on a JSON rewrite) and
+        // MCP servers sit under a nested `mcp.servers` block.
+        writable: false,
+        disable: Some(DisableFlag {
+            key: "enabled",
+            off_when: false,
+        }),
+        project_path: None,
+        path: |home, _| home.join(".openclaw").join("openclaw.json"),
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -484,7 +501,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 26);
+        assert_eq!(registry().len(), 27);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }
@@ -534,6 +551,11 @@ mod tests {
             "disabled"
         );
         assert!(by_id(ToolId::Crush).disable.as_ref().unwrap().off_when);
+        assert_eq!(
+            by_id(ToolId::OpenClaw).disable.as_ref().unwrap().key,
+            "enabled"
+        );
+        assert!(!by_id(ToolId::OpenClaw).disable.as_ref().unwrap().off_when);
         for id in [
             ToolId::Cursor,
             ToolId::ClaudeCode,

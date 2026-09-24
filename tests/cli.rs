@@ -1000,7 +1000,8 @@ fn warp_kiro_and_trae_are_discoverable() {
     assert!(ids.contains(&"crush"), "crush must appear: {ids:?}");
     assert!(ids.contains(&"openhands"), "openhands must appear: {ids:?}");
     assert!(ids.contains(&"devin"), "devin must appear: {ids:?}");
-    assert_eq!(ids.len(), 26, "26 tools expected: {ids:?}");
+    assert!(ids.contains(&"openclaw"), "openclaw must appear: {ids:?}");
+    assert_eq!(ids.len(), 27, "27 tools expected: {ids:?}");
 
     let _ = std::fs::remove_dir_all(&home);
 }
@@ -1289,4 +1290,25 @@ fn doctor_explain_prints_fix_hints() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("\"fix\":"), "{stdout}");
     assert!(stdout.contains("doctor --fix"), "{stdout}");
+}
+
+#[test]
+fn openclaw_nested_servers_are_read() {
+    let home = temp_home("openclaw");
+    std::fs::create_dir_all(home.join(".openclaw")).unwrap();
+    std::fs::write(
+        home.join(".openclaw").join("openclaw.json"),
+        r#"{
+            "mcp": {
+                "servers": {
+                    "docs": {"command": "uvx", "args": ["mcp-server-fetch"]}
+                }
+            }
+        }"#,
+    )
+    .unwrap();
+    let out = run(&home, &["--json", "list", "--tool", "openclaw"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("docs"), "{stdout}");
+    assert!(stdout.contains("openclaw"), "{stdout}");
 }
