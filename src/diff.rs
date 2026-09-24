@@ -68,7 +68,19 @@ fn first_difference(a: &Transport, b: &Transport) -> String {
                     args2.join(" ")
                 )
             } else {
-                format!("env differs ({} vs {} variables)", env.len(), env2.len())
+                let mut changed: Vec<&str> = env
+                    .keys()
+                    .chain(env2.keys())
+                    .filter(|k| env.get(*k) != env2.get(*k))
+                    .map(String::as_str)
+                    .collect();
+                changed.sort_unstable();
+                changed.dedup();
+                if changed.is_empty() {
+                    format!("env differs ({} vs {} variables)", env.len(), env2.len())
+                } else {
+                    format!("env differs ({})", changed.join(", "))
+                }
             }
         }
         (
@@ -162,6 +174,39 @@ mod tests {
         );
         assert!(
             d.different[0].1.contains("Authorization"),
+            "got: {}",
+            d.different[0].1
+        );
+    }
+
+    #[test]
+    fn diff_names_differing_env_keys() {
+        let mut env_a = BTreeMap::new();
+        env_a.insert("TOKEN".to_owned(), "one".to_owned());
+        let mut env_b = BTreeMap::new();
+        env_b.insert("TOKEN".to_owned(), "two".to_owned());
+        let mut a = Servers::new();
+        a.insert(
+            "svc".into(),
+            Transport::Stdio {
+                command: "npx".into(),
+                args: vec![],
+                env: env_a,
+            },
+        );
+        let mut b = Servers::new();
+        b.insert(
+            "svc".into(),
+            Transport::Stdio {
+                command: "npx".into(),
+                args: vec![],
+                env: env_b,
+            },
+        );
+        let d = diff(&a, &b);
+        assert_eq!(d.different.len(), 1);
+        assert!(
+            d.different[0].1.contains("TOKEN"),
             "got: {}",
             d.different[0].1
         );
