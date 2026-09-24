@@ -773,7 +773,7 @@ fn probe_findings(loads: &[ToolLoad], budget: crate::probe::ProbeBudget) -> Vec<
         let handles: Vec<_> = jobs
             .iter()
             .map(|(tool, name, transport)| {
-                s.spawn(move || {
+                (*tool, name.clone(), s.spawn(move || {
                     let (severity, message) = match crate::probe::probe_transport(transport, budget) {
                         crate::probe::Probe::McpOk {
                             server,
@@ -822,12 +822,20 @@ fn probe_findings(loads: &[ToolLoad], budget: crate::probe::ProbeBudget) -> Vec<
                         server: Some(name.clone()),
                         message,
                     }
-                })
+                }))
             })
             .collect();
         handles
             .into_iter()
-            .map(|h| h.join().expect("probe thread panicked"))
+            .map(|(tool, name, h)| match h.join() {
+                Ok(finding) => finding,
+                Err(_) => doctor::Finding {
+                    severity: Severity::Critical,
+                    tool,
+                    server: Some(name),
+                    message: "unreachable: probe thread panicked".to_owned(),
+                },
+            })
             .collect::<Vec<_>>()
     })
 }
