@@ -992,7 +992,11 @@ fn warp_kiro_and_trae_are_discoverable() {
     assert!(ids.contains(&"kimi-code"), "kimi-code must appear: {ids:?}");
     assert!(ids.contains(&"qwen-code"), "qwen-code must appear: {ids:?}");
     assert!(ids.contains(&"auggie"), "auggie must appear: {ids:?}");
-    assert_eq!(ids.len(), 21, "21 tools expected: {ids:?}");
+    assert!(
+        ids.contains(&"factory-droid"),
+        "factory-droid must appear: {ids:?}"
+    );
+    assert_eq!(ids.len(), 22, "22 tools expected: {ids:?}");
 
     let _ = std::fs::remove_dir_all(&home);
 }

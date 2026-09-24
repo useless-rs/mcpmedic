@@ -77,7 +77,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **113 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 21 tools
+- ✅ **113 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 22 tools
 
 ## Supported tools
 
@@ -104,6 +104,7 @@ doesn't own, always atomically, always with an automatic backup first.
 | Kimi Code | `~/.kimi-code/mcp.json` → `mcpServers`; project `.kimi-code/mcp.json` | JSON | ✅ |
 | Qwen Code | `~/.qwen/settings.json` → `mcpServers` (`httpUrl` for HTTP remotes); project `.qwen/settings.json` | JSON | ✅ |
 | Auggie | `~/.augment/settings.json` → `mcpServers` | JSON | ✅ |
+| Factory Droid | `~/.factory/mcp.json` → `mcpServers`; project `.factory/mcp.json` | JSON | ✅ |
 
 Claude Code's `CLAUDE_CONFIG_DIR` and Codex's `CODEX_HOME` environment
 overrides are respected. Point `HOME`/`USERPROFILE` at another machine's home

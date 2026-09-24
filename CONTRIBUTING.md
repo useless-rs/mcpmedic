@@ -437,3 +437,11 @@ One line per improvement cycle: date, what changed, why.
   44 e2e). Roadmap: Factory Droid (standard mcpServers + disabled
   flag, simple), Amp (flat "amp.mcpServers" dot-key — needs a new
   Format variant) and Crush ("mcp" key) researched for cycle 40.
+- **2026-09-24 · cycle 40 — Factory Droid added (22 tools).**
+  Factory's Droid CLI: ~/.factory/mcp.json, standard mcpServers
+  (per the first-party docs.factory.ai research from cycle 39),
+  project-scoped at .factory/mcp.json (the committed-to-repo
+  location). Documented `disabled: boolean` disable flag — same
+  shape as Cline/Roo/Kiro. Remotes use type:http + url, already
+  the catch-all write arm; stdio `type` is optional in Droid, so
+  no dialect wiring needed. 113 tests (69 unit + 44 e2e).

@@ -30,6 +30,7 @@ pub(crate) enum ToolId {
     KimiCode,
     QwenCode,
     Auggie,
+    FactoryDroid,
 }
 
 impl ToolId {
@@ -57,6 +58,7 @@ impl ToolId {
             Self::KimiCode => "kimi-code",
             Self::QwenCode => "qwen-code",
             Self::Auggie => "auggie",
+            Self::FactoryDroid => "factory-droid",
         }
     }
 }
@@ -383,6 +385,18 @@ static REGISTRY: &[ToolSpec] = &[
         project_path: None,
         path: |home, _| home.join(".augment").join("settings.json"),
     },
+    ToolSpec {
+        id: ToolId::FactoryDroid,
+        display: "Factory Droid",
+        format: Format::McpServers,
+        writable: true,
+        disable: Some(DisableFlag {
+            key: "disabled",
+            off_when: true,
+        }),
+        project_path: Some(|project| project.join(".factory").join("mcp.json")),
+        path: |home, _| home.join(".factory").join("mcp.json"),
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -423,7 +437,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 21);
+        assert_eq!(registry().len(), 22);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }
@@ -457,6 +471,17 @@ mod tests {
             "enabled"
         );
         assert!(!by_id(ToolId::KimiCode).disable.as_ref().unwrap().off_when);
+        assert_eq!(
+            by_id(ToolId::FactoryDroid).disable.as_ref().unwrap().key,
+            "disabled"
+        );
+        assert!(
+            by_id(ToolId::FactoryDroid)
+                .disable
+                .as_ref()
+                .unwrap()
+                .off_when
+        );
         for id in [
             ToolId::Cursor,
             ToolId::ClaudeCode,
@@ -533,6 +558,10 @@ mod tests {
         assert_eq!(
             project_of(ToolId::QwenCode),
             PathBuf::from("/repo/.qwen/settings.json")
+        );
+        assert_eq!(
+            project_of(ToolId::FactoryDroid),
+            PathBuf::from("/repo/.factory/mcp.json")
         );
         for id in [
             ToolId::ClaudeDesktop,
