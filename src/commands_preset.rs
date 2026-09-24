@@ -29,7 +29,11 @@ pub(crate) fn cmd_preset_list(ctx: &Ctx) -> ExitCode {
                 })
             })
             .collect();
-        print_json(&json!(list));
+        print_json(&json!({
+            "schema_version": 1,
+            "generator": format!("mcpmedic {}", env!("CARGO_PKG_VERSION")),
+            "presets": list,
+        }));
         return ExitCode::SUCCESS;
     }
     println!("{}", report::brand_header());
