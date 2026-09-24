@@ -25,7 +25,22 @@ use std::process::ExitCode;
 use clap::Parser;
 
 fn main() -> ExitCode {
+    silence_broken_pipe();
     let cli = cli::Cli::parse();
     report::init_colors();
     commands::run(cli)
+}
+
+/// Piping stdout to a closed reader (`mcpmedic list | head -1`) makes
+/// `println!` panic with "failed printing to stdout: Broken pipe".
+/// That is a successful truncated read, not a crash: exit quietly instead.
+fn silence_broken_pipe() {
+    let default = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let msg = info.to_string();
+        if msg.contains("Broken pipe") || msg.contains("failed printing to stdout") {
+            std::process::exit(0);
+        }
+        default(info);
+    }));
 }
