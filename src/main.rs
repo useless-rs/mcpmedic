@@ -11,6 +11,7 @@ mod commands;
 mod diff;
 mod doctor;
 mod format;
+mod format_fix;
 mod format_toml;
 mod format_yaml;
 mod model;

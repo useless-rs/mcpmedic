@@ -12,6 +12,7 @@ use crate::cli::Cmd;
 use crate::diff;
 use crate::doctor::{self, Severity, ToolLoad};
 use crate::format::{self, Format};
+use crate::format_fix;
 use crate::format_toml;
 use crate::model::{Servers, Transport};
 use crate::registry::{self, EnvOverrides, ToolId, ToolSpec};
@@ -1024,7 +1025,7 @@ fn apply_repairs(
         };
         if !cfg.editable {
             let mut preview = doc.clone();
-            let possible = format::fix_json_config(spec.id, spec.format, &mut preview);
+            let possible = format_fix::fix_json_config(spec.id, spec.format, &mut preview);
             if !possible.is_empty() {
                 println!(
                     "  {} {} config is read-only — {} repair(s) skipped",
@@ -1038,13 +1039,13 @@ fn apply_repairs(
         }
         if dry_run {
             let mut preview = doc.clone();
-            for repair in format::fix_json_config(spec.id, spec.format, &mut preview) {
+            for repair in format_fix::fix_json_config(spec.id, spec.format, &mut preview) {
                 println!("  ✚ would fix — {repair}");
                 printed = true;
             }
             continue;
         }
-        let fixes = format::fix_json_config(spec.id, spec.format, doc);
+        let fixes = format_fix::fix_json_config(spec.id, spec.format, doc);
         if fixes.is_empty() {
             continue;
         }
@@ -1427,7 +1428,7 @@ fn cmd_set_enabled(ctx: &Ctx, name: &str, from: &str, enable: bool, dry_run: boo
 
     let off = !enable;
     let changed = match &mut cfg.raw {
-        RawDoc::Json(doc) => format::set_json_disabled(flag, spec.format, doc, name, off),
+        RawDoc::Json(doc) => format_fix::set_json_disabled(flag, spec.format, doc, name, off),
         RawDoc::Toml(doc) => match format_toml::set_toml_disabled(flag, doc, name, off) {
             Ok(found) => found,
             Err(e) => return fail(&e),

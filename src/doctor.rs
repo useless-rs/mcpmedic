@@ -92,7 +92,7 @@ fn diagnose_loaded(
     }
 
     if let crate::store::RawDoc::Json(doc) = &cfg.raw {
-        for issue in crate::format::json_raw_issues(tool.id, tool.format, doc, &cfg.disabled) {
+        for issue in crate::format_fix::json_raw_issues(tool.id, tool.format, doc, &cfg.disabled) {
             let severity = if issue.contains("legacy") || issue.contains("ignored") {
                 Severity::Warning
             } else {
