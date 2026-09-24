@@ -128,6 +128,9 @@ fn scan_field(
         });
         return;
     }
+    if kind == "header" && name.eq_ignore_ascii_case("authorization") {
+        return;
+    }
     let lower_name = name.to_ascii_lowercase();
     let credential_shaped = NAME_HINTS.iter().any(|hint| lower_name.contains(hint));
     if credential_shaped && value.chars().count() >= 16 && shannon_entropy(value) >= 3.5 {
@@ -152,7 +155,10 @@ pub(crate) fn scan_transport(server: &str, transport: &Transport) -> Vec<SecretF
             let literal_auth = headers
                 .iter()
                 .any(|(k, v)| k.eq_ignore_ascii_case("authorization") && !is_placeholder(v));
-            if literal_auth {
+            let already_covered = findings
+                .iter()
+                .any(|f| f.location.eq_ignore_ascii_case("header `authorization`"));
+            if literal_auth && !already_covered {
                 findings.push(SecretFinding {
                     server: server.to_owned(),
                     location: "header `Authorization`".to_owned(),
@@ -286,5 +292,18 @@ mod tests {
             findings.iter().any(|f| f.label.contains("Authorization")),
             "{findings:?}"
         );
+    }
+
+    #[test]
+    fn authorization_with_known_prefix_reports_once() {
+        let transport = Transport::Remote {
+            url: "https://example.com/mcp".into(),
+            headers: env_map(&[(
+                "Authorization",
+                "sk-proj-0123456789abcdefghijklmnopqrstuvwxyz",
+            )]),
+        };
+        let findings = scan_transport("srv", &transport);
+        assert_eq!(findings.len(), 1, "{findings:?}");
     }
 }
