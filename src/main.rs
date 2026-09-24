@@ -13,6 +13,7 @@ mod commands_ctx;
 mod commands_doctor;
 mod commands_mutate;
 mod commands_portable;
+mod commands_probe;
 mod commands_read;
 mod commands_status;
 mod commands_sync;
