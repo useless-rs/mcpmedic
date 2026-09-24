@@ -540,3 +540,17 @@ One line per improvement cycle: date, what changed, why.
   revision — is era-correct by design: dual-era servers answer it,
   and the dual-era server/discover probe is on the roadmap for
   when modern-only servers appear. 118 tests (72 unit + 46 e2e).
+- **2026-09-24 · cycle 48 — v0.12.0 released.** Version bump
+  0.11.0 → 0.12.0 shipping two features: OpenClaw (27th tool —
+  ~/.openclaw/openclaw.json, JSON5, nested mcp.servers, read-only
+  following the opencode precedent, documented enabled:false
+  disable flag) and parallel doctor --probe (std::thread::scope —
+  wall-clock time is the slowest single probe instead of the sum;
+  handles joined in job order so output is byte-identical).
+  5-platform binaries, Homebrew tap updated with v0.12.0 sha256
+  hashes. 118 tests (72 unit + 46 e2e). Roadmap: the dual-era
+  server/discover probe researched for cycle 49 — send
+  server/discover with modern _meta first; a DiscoverResult
+  identifies a modern (2026-07-28) server, UnsupportedProtocolVersionError
+  (-32022) a modern server needing a version retry, anything else
+  falls back to the legacy initialize handshake.
