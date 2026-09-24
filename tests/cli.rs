@@ -1606,6 +1606,20 @@ fn restore_dry_run_touches_nothing() {
 }
 
 #[test]
+#[cfg(unix)]
+fn audit_strict_fails_on_permission_warnings() {
+    use std::os::unix::fs::PermissionsExt;
+    let home = sample_home("audit-strict");
+    let path = home.join(".cursor/mcp.json");
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    let lax = run(&home, &["audit", "--tool", "cursor"]);
+    assert!(lax.status.success(), "stderr: {}", stderr(&lax));
+    let strict = run(&home, &["audit", "--tool", "cursor", "--strict"]);
+    assert_eq!(strict.status.code(), Some(1), "stdout: {}", stdout(&strict));
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn version_flag_matches_package_version() {
     let home = temp_home("version");
     let out = run(&home, &["--version"]);

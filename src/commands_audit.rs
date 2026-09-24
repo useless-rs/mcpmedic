@@ -12,7 +12,7 @@ use crate::registry::ToolSpec;
 use crate::report;
 use crate::store::ConfigState;
 
-pub(crate) fn cmd_audit(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
+pub(crate) fn cmd_audit(ctx: &Ctx, tool: Option<&str>, strict: bool) -> ExitCode {
     let specs: Vec<&'static ToolSpec> = match tool {
         Some(name) => match resolve(name) {
             Ok(spec) => vec![spec],
@@ -82,7 +82,7 @@ pub(crate) fn cmd_audit(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
                 "permission_warnings": perms_warnings,
             }
         }));
-        return if secrets > 0 {
+        return if secrets > 0 || (strict && perms_warnings > 0) {
             ExitCode::from(1)
         } else {
             ExitCode::SUCCESS
@@ -95,6 +95,8 @@ pub(crate) fn cmd_audit(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
         println!(
             "  rotate the exposed credentials; prefer env references (\"${{VAR}}\") over literals"
         );
+        ExitCode::from(1)
+    } else if strict && perms_warnings > 0 {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS

@@ -217,6 +217,9 @@ pub(crate) enum Cmd {
         /// Only audit this tool (id or display name).
         #[arg(long)]
         tool: Option<String>,
+        /// Also fail on permission warnings, not just hardcoded secrets.
+        #[arg(long)]
+        strict: bool,
     },
 
     /// Restore configs from automatic backups (list or --latest to restore).
