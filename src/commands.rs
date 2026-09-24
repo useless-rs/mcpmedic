@@ -1997,6 +1997,25 @@ fn cmd_sync_all(ctx: &Ctx, from: &str, names: &[String], force: bool, dry_run: b
             }
         };
         let plan = sync::plan(&source_servers, &target.servers, names, force);
+        if plan.to_add.is_empty() && plan.drifted.is_empty() && plan.unknown.is_empty() {
+            continue;
+        }
+        for name in &plan.drifted {
+            if force {
+                println!(
+                    "  ~ {name} (overwritten with --force) in {}",
+                    target_spec.display
+                );
+            } else {
+                println!(
+                    "  ~ {name} drifted in {} — skipped (use --force to overwrite)",
+                    target_spec.display
+                );
+            }
+        }
+        if !plan.unknown.is_empty() {
+            println!("  ? not found in source: {}", plan.unknown.join(", "));
+        }
         if plan.to_add.is_empty() {
             continue;
         }
