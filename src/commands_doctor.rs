@@ -229,7 +229,7 @@ pub(crate) fn cmd_doctor(
         "  {} critical · {} warning(s) · {} info",
         by_severity[0], by_severity[1], by_severity[2]
     );
-    if explain && !findings.is_empty() {
+    if explain && !ctx.quiet && !findings.is_empty() {
         println!();
         println!("  How to fix:");
         let mut shown: Vec<&str> = Vec::new();

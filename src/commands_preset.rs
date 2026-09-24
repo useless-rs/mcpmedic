@@ -103,7 +103,7 @@ pub(crate) fn cmd_preset_add(
         Ok(None) => {}
         Err(e) => return fail(&e),
     }
-    if !dry_run {
+    if !dry_run && !ctx.quiet {
         println!();
         println!(
             "  Next: `mcpmedic doctor --probe` verifies the bundle, then `mcpmedic sync-all --from {}` spreads it everywhere.",

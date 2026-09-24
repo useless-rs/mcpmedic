@@ -85,7 +85,7 @@ pub(crate) fn cmd_init(ctx: &Ctx) -> ExitCode {
     println!();
 
     let code = cmd_sync_all(ctx, source_id, &[], false, false);
-    if code == ExitCode::SUCCESS {
+    if code == ExitCode::SUCCESS && !ctx.quiet {
         println!();
         println!("  Next: `mcpmedic doctor` verifies the merged setup is healthy.");
     }

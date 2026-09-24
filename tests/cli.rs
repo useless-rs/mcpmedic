@@ -1615,6 +1615,30 @@ fn restore_dry_run_touches_nothing() {
 }
 
 #[test]
+fn quiet_suppresses_guidance_but_keeps_findings() {
+    let home = sample_home("quiet-guidance");
+    let loud = run(&home, &["doctor", "--explain"]);
+    assert!(
+        stdout(&loud).contains("How to fix"),
+        "got: {}",
+        stdout(&loud)
+    );
+    let quiet = run(&home, &["doctor", "--explain", "--quiet"]);
+    assert!(quiet.status.success(), "stderr: {}", stderr(&quiet));
+    assert!(
+        !stdout(&quiet).contains("How to fix"),
+        "got: {}",
+        stdout(&quiet)
+    );
+    assert!(
+        stdout(&quiet).contains("critical"),
+        "findings missing: {}",
+        stdout(&quiet)
+    );
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn project_mode_rejects_missing_directory() {
     let home = temp_home("project-missing");
     let missing = home.join("does-not-exist");
