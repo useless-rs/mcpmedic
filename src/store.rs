@@ -11,6 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use crate::format::{self, Format};
+use crate::format_jsonc;
 use crate::format_toml;
 use crate::format_yaml;
 use crate::model::Servers;
@@ -124,7 +125,7 @@ pub(crate) fn load(spec: &ToolSpec, path: &Path) -> ConfigState {
             // JSONC tolerance (Zed settings.json, opencode): parse a stripped
             // copy for reading, but never rewrite the file — that would
             // destroy the user's comments.
-            let stripped = format::jsonc_strip(&contents);
+            let stripped = format_jsonc::jsonc_strip(&contents);
             match serde_json::from_str::<Value>(&stripped) {
                 Ok(doc) => {
                     let (servers, problems) = read_json_servers(spec.format, &doc);
