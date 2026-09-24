@@ -585,3 +585,18 @@ One line per improvement cycle: date, what changed, why.
   None). The tools_count_from_response matcher (id == 2 +
   /result/tools) serves both eras unchanged. 120 tests (74 unit +
   46 e2e).
+- **2026-09-24 · cycle 51 — parked-server probe skip + v0.13.0
+  released.** doctor --probe no longer probes parked (disabled)
+  servers — aligning it with every other doctor check (the
+  dead-command check and the raw-issues scan both skip parked
+  servers; the probe was the outlier, reporting false Criticals for
+  servers the user deliberately parked). Claude Code has the same
+  bug class (anthropics/claude-code#46124: "/status incorrectly
+  reports disabled MCP servers as 'failed'"; #32119) — the
+  convention is that disabled servers are never health-checked.
+  Version bump 0.12.0 → 0.13.0 shipping three features: the
+  dual-era server/discover probe (modern 2026-07-28 servers
+  identified first, per the spec's exact dual-era client guidance),
+  the modern tools/list query (tool counts for modern servers),
+  and this coherence fix. 5-platform binaries, Homebrew tap updated
+  with v0.13.0 sha256 hashes. 121 tests (74 unit + 47 e2e).
