@@ -1606,6 +1606,19 @@ fn restore_dry_run_touches_nothing() {
 }
 
 #[test]
+fn version_flag_matches_package_version() {
+    let home = temp_home("version");
+    let out = run(&home, &["--version"]);
+    assert!(out.status.success(), "stderr: {}", stderr(&out));
+    assert!(
+        stdout(&out).contains(env!("CARGO_PKG_VERSION")),
+        "got: {}",
+        stdout(&out)
+    );
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn color_always_forces_ansi_despite_no_color() {
     let home = sample_home("color-always");
     let out = run(&home, &["list", "--color", "always"]);
