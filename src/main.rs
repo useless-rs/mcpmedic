@@ -12,6 +12,7 @@ mod commands_ctx;
 mod commands_doctor;
 mod commands_mutate;
 mod commands_read;
+mod commands_sync;
 mod diff;
 mod doctor;
 mod format;
