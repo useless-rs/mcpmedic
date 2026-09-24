@@ -67,7 +67,7 @@ doesn't own, always atomically, always with an automatic backup first.
   references correctly skipped), and a Unix permission check that warns when
   a config full of credentials is readable by others
 - 📡 **`--json`** — every read command (`scan`, `list`, `show`, `doctor`,
-  `audit`) emits a single schema-versioned JSON document on stdout, with
+  `diff`, `audit`) emits a single schema-versioned JSON document on stdout, with
   unchanged exit codes — pipe to `jq`, gate CI, build editor integrations
 - 🪡 **Surgical edits** — `add`/`rm` write the *exact* dialect each tool
   expects, preserve every unrelated key, use atomic `write+rename`, and back up
@@ -240,7 +240,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `list [--tool <t>]` | Table of every server per tool |
 | `show <name>` | Every tool that configures a given server + drift check |
 | `doctor [--tool <t>] [--strict] [--fix] [--probe] [--explain]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat, unset `${VAR}` env references (e.g. `${GITHUB_TOKEN}` or `${env:API_KEY}` referenced in `env`/`headers` but not present in the environment), npx footguns (missing `-y` hang risk, `@latest` registry round-trips). `--fix` applies safe auto-repairs — including inserting the missing `npx -y` (`--dry-run` previews); `--probe` speaks MCP (probes run in parallel): stdio servers get a real initialize handshake plus a tools/list query — reporting the server's name, protocol version and exposed tool count; modern (2026-07-28-era) servers are identified via server/discover with the same name, version and tool count reporting; a crashed server surfaces its stderr tail (the real failure cause); remotes get a TCP connect; `--explain` prints how-to-fix hints per category (`--json` findings carry a `fix` field) |
-| `diff <a> <b>` | Server drift between two tools |
+| `diff <a> <b>` | Server drift between two tools; with `--json`: the drift buckets as one machine-readable document with an `in_sync` flag |
 | `add <name> --to <t> ...` | Add a stdio (`--command ... -- args`) or remote (`--url`) server |
 | `rm <name> --from <t>` | Remove one server |
 | `enable` / `disable` <name> --from <t> | Park or resume a server without removing it, using the tool's own documented disable switch (`--dry-run` supported) |
@@ -256,7 +256,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 
 All commands accept `--project <dir>` to operate on repo-checked-in configs
 instead of user-global files; all mutation commands support `--dry-run`.
-All read commands (`scan`, `list`, `show`, `doctor`, `audit`) accept `--json`
+All read commands (`scan`, `list`, `show`, `doctor`, `diff`, `audit`) accept `--json`
 for schema-versioned machine output on stdout — exit codes are unchanged,
 so `doctor --json` still exits 1 on critical findings and gates CI:
 

@@ -600,3 +600,16 @@ One line per improvement cycle: date, what changed, why.
   the modern tools/list query (tool counts for modern servers),
   and this coherence fix. 5-platform binaries, Homebrew tap updated
   with v0.13.0 sha256 hashes. 121 tests (74 unit + 47 e2e).
+- **2026-09-24 · cycle 52 — diff --json.** The last read command
+  without machine output: `mcpmedic diff --json` now emits one
+  schema-consistent document — tool ids, server counts, the three
+  drift buckets (only_a / only_b / different with per-name
+  reasons), the identical count, and an `in_sync` flag for CI
+  gating. This completes --json coverage across every read command
+  (scan, list, show, doctor, diff, audit). Hard errors (unknown
+  tool, missing config) stay on the human fail() path — consistent
+  with every other --json command. Also: the init empty-case now
+  recommends the curated preset bundles first (`mcpmedic preset
+  add minimal --to claude-code`) with the manual add as the
+  alternative — the on-ramp message predates the preset feature.
+  122 tests (74 unit + 48 e2e).

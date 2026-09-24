@@ -1354,3 +1354,38 @@ fn doctor_probe_skips_parked_servers() {
         "parked server must not produce probe findings: {stdout}"
     );
 }
+
+#[test]
+fn diff_json_reports_drift_buckets() {
+    let home = temp_home("diff-json");
+    std::fs::write(
+        home.join(".claude.json"),
+        r#"{"mcpServers":{"alpha":{"command":"echo","args":["a"]},"shared":{"command":"echo","args":["s"]}}}"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(home.join(".cursor")).unwrap();
+    std::fs::write(
+        home.join(".cursor").join("mcp.json"),
+        r#"{"mcpServers":{"beta":{"command":"echo","args":["b"]},"shared":{"command":"echo","args":["different"]}}}"#,
+    )
+    .unwrap();
+    let out = run(&home, &["--json", "diff", "claude-code", "cursor"]);
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(v["a"], "claude-code");
+    assert_eq!(v["b"], "cursor");
+    assert!(
+        v["only_a"].as_array().unwrap().iter().any(|s| s == "alpha"),
+        "{stdout}"
+    );
+    assert!(
+        v["only_b"].as_array().unwrap().iter().any(|s| s == "beta"),
+        "{stdout}"
+    );
+    assert_eq!(v["identical"], 0);
+    assert_eq!(v["in_sync"], false);
+    let different = v["different"].as_array().unwrap();
+    assert_eq!(different.len(), 1);
+    assert_eq!(different[0]["name"], "shared");
+}

@@ -1011,6 +1011,29 @@ fn cmd_diff(ctx: &Ctx, a: &str, b: &str) -> ExitCode {
     };
 
     let result = diff::diff(&servers_a, &servers_b);
+
+    if ctx.json {
+        let in_sync =
+            result.only_a.is_empty() && result.only_b.is_empty() && result.different.is_empty();
+        let different: Vec<Value> = result
+            .different
+            .iter()
+            .map(|(name, reason)| json!({"name": name, "reason": reason}))
+            .collect();
+        print_json(&json!({
+            "a": spec_a.id.as_str(),
+            "b": spec_b.id.as_str(),
+            "a_servers": servers_a.len(),
+            "b_servers": servers_b.len(),
+            "only_a": result.only_a,
+            "only_b": result.only_b,
+            "different": different,
+            "identical": result.identical,
+            "in_sync": in_sync,
+        }));
+        return ExitCode::SUCCESS;
+    }
+
     println!(
         "{}",
         report::header(&format!(
@@ -1763,7 +1786,7 @@ fn cmd_init(ctx: &Ctx) -> ExitCode {
         if ctx.json {
             print_json(&json!({
                 "candidates": [],
-                "next": "mcpmedic add claude-code <name> -- <command> [args]",
+                "next": "mcpmedic preset add minimal --to claude-code",
             }));
         } else {
             println!("{}", report::brand_header());
@@ -1773,7 +1796,10 @@ fn cmd_init(ctx: &Ctx) -> ExitCode {
             println!();
             println!("  No MCP servers found in any tool.");
             println!();
-            println!("  Add your first server:");
+            println!("  Get started with a curated bundle:");
+            println!("    mcpmedic preset add minimal --to claude-code");
+            println!();
+            println!("  Or add a single server:");
             println!(
                 "    mcpmedic add claude-code demo -- npx -y @modelcontextprotocol/server-memory"
             );
