@@ -287,3 +287,11 @@ One line per improvement cycle: date, what changed, why.
   `mcpmedic add` example and tells the user to re-run init afterwards.
   --json prints the detection report only (candidates, source, next
   command) without touching any file. 96 tests.
+- **2026-09-24 · cycle 27 — v0.5.0 released.** Version bump 0.4.0 →
+  0.5.0 shipping three features: Continue support (17 tools, JSON
+  drop-in at ~/.continue/mcpServers/mcp.json), doctor env var
+  validation (${VAR} / ${env:VAR} references checked against the
+  environment), and `mcpmedic init` (zero-prompt onboarding: detect,
+  pick the richest source, sync to every installed tool). 5-platform
+  binaries (linux amd64/arm64, macOS amd64/arm64, Windows x86_64),
+  Homebrew tap updated with v0.5.0 sha256 hashes. 96 tests.

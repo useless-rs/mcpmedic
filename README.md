@@ -40,6 +40,7 @@ doesn't own, always atomically, always with an automatic backup first.
 
 ## Highlights
 
+- 🚀 **`init`** — one-shot onboarding: detect your configs, sync the richest everywhere
 - 🩺 **`doctor`** — parse errors, dead `command:` paths, unset `${VAR}` env references, VS Code entries
   missing their mandatory `type`, remote entries whose `type` spelling their
   tool can't read, cross-tool config drift, duplicate servers, and
