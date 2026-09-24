@@ -19,6 +19,7 @@ mod commands_status;
 mod commands_sync;
 mod diff;
 mod doctor;
+mod doctor_env;
 mod format;
 mod format_fix;
 mod format_json;
