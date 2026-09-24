@@ -459,3 +459,17 @@ One line per improvement cycle: date, what changed, why.
   format-agnostic path; json_snippet learned both keys. First unit
   test for the new formats (parses_amp_and_crush_formats).
   114 tests (70 unit + 44 e2e).
+- **2026-09-24 · cycle 42 — v0.10.0 released.** Version bump 0.9.0 →
+  0.10.0 shipping the 21→24 tool expansion: Factory Droid
+  (~/.factory/mcp.json, standard mcpServers, disabled flag, project
+  .factory/mcp.json), Amp (~/.config/amp/settings.json — first tool
+  with a flat "amp.mcpServers" dot-key, new Format variant, project
+  .amp/settings.json) and Crush (~/.config/crush/crush.json — "mcp"
+  key with explicit type fields, new Format variant, disabled flag,
+  project crush.json). Two new config formats entered the Format
+  enum, build_json_entry and json_snippet. 5-platform binaries,
+  Homebrew tap updated with v0.10.0 sha256 hashes. 114 tests
+  (70 unit + 44 e2e). Roadmap: OpenHands (~/.openhands/mcp.json,
+  standard mcpServers — confirmed) and Devin CLI
+  (~/.config/devin/config.json + project .devin/config.json —
+  confirmed) researched for cycle 43.
