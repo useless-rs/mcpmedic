@@ -692,6 +692,63 @@ fn fix_hint(message: &str) -> Option<&'static str> {
     None
 }
 
+fn probe_findings(loads: &[ToolLoad]) -> Vec<doctor::Finding> {
+    let mut jobs = Vec::new();
+    for load in loads {
+        let ConfigState::Loaded(cfg) = &load.state else {
+            continue;
+        };
+        for (name, transport) in &cfg.servers {
+            jobs.push((load.id, name.clone(), transport));
+        }
+    }
+    std::thread::scope(|s| {
+        let handles: Vec<_> = jobs
+            .iter()
+            .map(|(tool, name, transport)| {
+                s.spawn(move || {
+                    let (severity, message) = match crate::probe::probe_transport(transport) {
+                        crate::probe::Probe::McpOk {
+                            server,
+                            protocol,
+                            tools,
+                        } => {
+                            let tools_note = tools.map_or(String::new(), |n| {
+                                format!(", exposes {n} tool(s)")
+                            });
+                            (
+                                Severity::Info,
+                                format!(
+                                    "probe: MCP handshake ok — `{server}` speaks protocol {protocol}{tools_note}"
+                                ),
+                            )
+                        }
+                        crate::probe::Probe::Reachable(reason) => {
+                            (Severity::Info, format!("probe: {reason}"))
+                        }
+                        crate::probe::Probe::Unreachable(reason) => {
+                            (Severity::Critical, format!("unreachable: {reason}"))
+                        }
+                        crate::probe::Probe::Skipped(reason) => {
+                            (Severity::Info, format!("probe skipped: {reason}"))
+                        }
+                    };
+                    doctor::Finding {
+                        severity,
+                        tool: *tool,
+                        server: Some(name.clone()),
+                        message,
+                    }
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| h.join().expect("probe thread panicked"))
+            .collect::<Vec<_>>()
+    })
+}
+
 #[expect(clippy::too_many_lines)]
 #[expect(clippy::fn_params_excessive_bools)]
 fn cmd_doctor(
@@ -730,44 +787,7 @@ fn cmd_doctor(
     }
 
     if probe {
-        for load in &loads {
-            let ConfigState::Loaded(cfg) = &load.state else {
-                continue;
-            };
-            for (name, transport) in &cfg.servers {
-                let (severity, message) = match crate::probe::probe_transport(transport) {
-                    crate::probe::Probe::McpOk {
-                        server,
-                        protocol,
-                        tools,
-                    } => {
-                        let tools_note =
-                            tools.map_or(String::new(), |n| format!(", exposes {n} tool(s)"));
-                        (
-                            Severity::Info,
-                            format!(
-                                "probe: MCP handshake ok — `{server}` speaks protocol {protocol}{tools_note}"
-                            ),
-                        )
-                    }
-                    crate::probe::Probe::Reachable(reason) => {
-                        (Severity::Info, format!("probe: {reason}"))
-                    }
-                    crate::probe::Probe::Unreachable(reason) => {
-                        (Severity::Critical, format!("unreachable: {reason}"))
-                    }
-                    crate::probe::Probe::Skipped(reason) => {
-                        (Severity::Info, format!("probe skipped: {reason}"))
-                    }
-                };
-                findings.push(doctor::Finding {
-                    severity,
-                    tool: load.id,
-                    server: Some(name.clone()),
-                    message,
-                });
-            }
-        }
+        findings.extend(probe_findings(&loads));
     }
 
     if ctx.json {

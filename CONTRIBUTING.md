@@ -526,3 +526,17 @@ One line per improvement cycle: date, what changed, why.
   was researched and skipped (its settings docs show no
   mcpServers block — MCP loads via extensions). 118 tests
   (72 unit + 46 e2e).
+- **2026-09-24 · cycle 47 — parallel doctor --probe.** All probes
+  now run concurrently via std::thread::scope: wall-clock time is
+  the slowest single probe instead of the sum (a 10-server setup
+  drops from ~50s to ~5s worst-case). Findings stay in the exact
+  same order as the old sequential loop — the handles are joined
+  in job order, so output is byte-identical. The probe block moved
+  out of cmd_doctor into a probe_findings helper. Protocol
+  research: the 2026-07-28 spec revision retired the
+  initialize/initialized handshake entirely (per-request _meta
+  metadata + server/discover instead), so the probe's legacy
+  initialize with protocolVersion 2025-11-25 — the latest LEGACY
+  revision — is era-correct by design: dual-era servers answer it,
+  and the dual-era server/discover probe is on the roadmap for
+  when modern-only servers appear. 118 tests (72 unit + 46 e2e).
