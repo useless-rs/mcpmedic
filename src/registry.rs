@@ -36,6 +36,8 @@ pub(crate) enum ToolId {
     OpenHands,
     Devin,
     OpenClaw,
+    Goose,
+    ContinueYaml,
 }
 
 impl ToolId {
@@ -69,6 +71,8 @@ impl ToolId {
             Self::OpenHands => "openhands",
             Self::Devin => "devin",
             Self::OpenClaw => "openclaw",
+            Self::Goose => "goose",
+            Self::ContinueYaml => "continue-yaml",
         }
     }
 }
@@ -461,6 +465,31 @@ static REGISTRY: &[ToolSpec] = &[
         project_path: None,
         path: |home, _| home.join(".openclaw").join("openclaw.json"),
     },
+    ToolSpec {
+        id: ToolId::Goose,
+        display: "Goose",
+        format: Format::Yaml,
+        // Read-only: config.yaml holds provider/model/preferences settings
+        // that a YAML round-trip would mangle.
+        writable: false,
+        disable: Some(DisableFlag {
+            key: "enabled",
+            off_when: false,
+        }),
+        project_path: None,
+        path: |home, _| home.join(".config").join("goose").join("config.yaml"),
+    },
+    ToolSpec {
+        id: ToolId::ContinueYaml,
+        display: "Continue (config.yaml)",
+        format: Format::Yaml,
+        // Read-only: config.yaml holds models/context/rules; the JSON
+        // drop-in (~/.continue/mcpServers/mcp.json) stays the writable path.
+        writable: false,
+        disable: None,
+        project_path: None,
+        path: |home, _| home.join(".continue").join("config.yaml"),
+    },
 ];
 
 /// VS Code user-data directory that extension global storage lives under.
@@ -501,7 +530,7 @@ mod tests {
 
     #[test]
     fn registry_is_complete() {
-        assert_eq!(registry().len(), 27);
+        assert_eq!(registry().len(), 29);
         for spec in registry() {
             assert!(!spec.display.is_empty());
         }
@@ -556,6 +585,11 @@ mod tests {
             "enabled"
         );
         assert!(!by_id(ToolId::OpenClaw).disable.as_ref().unwrap().off_when);
+        assert_eq!(
+            by_id(ToolId::Goose).disable.as_ref().unwrap().key,
+            "enabled"
+        );
+        assert!(!by_id(ToolId::Goose).disable.as_ref().unwrap().off_when);
         for id in [
             ToolId::Cursor,
             ToolId::ClaudeCode,
@@ -575,6 +609,7 @@ mod tests {
             ToolId::Amp,
             ToolId::OpenHands,
             ToolId::Devin,
+            ToolId::ContinueYaml,
         ] {
             assert!(
                 by_id(id).disable.is_none(),

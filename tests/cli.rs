@@ -1001,7 +1001,12 @@ fn warp_kiro_and_trae_are_discoverable() {
     assert!(ids.contains(&"openhands"), "openhands must appear: {ids:?}");
     assert!(ids.contains(&"devin"), "devin must appear: {ids:?}");
     assert!(ids.contains(&"openclaw"), "openclaw must appear: {ids:?}");
-    assert_eq!(ids.len(), 27, "27 tools expected: {ids:?}");
+    assert!(ids.contains(&"goose"), "goose must appear: {ids:?}");
+    assert!(
+        ids.contains(&"continue-yaml"),
+        "continue-yaml must appear: {ids:?}"
+    );
+    assert_eq!(ids.len(), 29, "29 tools expected: {ids:?}");
 
     let _ = std::fs::remove_dir_all(&home);
 }
@@ -1430,4 +1435,34 @@ fn doctor_probe_timeout_extends_the_budget() {
         "raised budget should land: {stdout}"
     );
     assert!(stdout.contains("slow-srv"), "{stdout}");
+}
+
+#[test]
+fn yaml_tools_are_read_end_to_end() {
+    let home = temp_home("yaml-tools");
+    std::fs::create_dir_all(home.join(".config").join("goose")).unwrap();
+    std::fs::write(
+        home.join(".config").join("goose").join("config.yaml"),
+        "provider: anthropic\nextensions:\n  - name: fs\n    enabled: false\n    transport:\n      type: stdio\n      command: npx\n      args: [\"-y\", \"pkg\"]\n",
+    )
+    .unwrap();
+    std::fs::create_dir_all(home.join(".continue")).unwrap();
+    std::fs::write(
+        home.join(".continue").join("config.yaml"),
+        "name: My Config\nmcpServers:\n  - name: sqlite\n    command: uvx\n    args:\n      - mcp-server-sqlite\n",
+    )
+    .unwrap();
+    let out = run(&home, &["--json", "list", "--tool", "goose"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let servers = v["tools"][0]["servers"].as_array().unwrap();
+    assert_eq!(servers[0]["name"], "fs");
+    assert_eq!(servers[0]["disabled"], true);
+    assert_eq!(servers[0]["transport"], "stdio");
+    let out = run(&home, &["--json", "list", "--tool", "continue-yaml"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let servers = v["tools"][0]["servers"].as_array().unwrap();
+    assert_eq!(servers[0]["name"], "sqlite");
+    assert_eq!(servers[0]["transport"], "stdio");
 }

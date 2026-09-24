@@ -18,6 +18,7 @@ mod registry;
 mod report;
 mod store;
 mod sync;
+mod yaml;
 
 use std::process::ExitCode;
 

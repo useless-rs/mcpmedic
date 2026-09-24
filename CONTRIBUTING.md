@@ -647,3 +647,22 @@ One line per improvement cycle: date, what changed, why.
   mcpServers list) both need flow-style sequences — a block-only
   parser is insufficient; a from-scratch YAML subset parser remains
   a multi-cycle project.
+- **2026-09-24 · cycle 55 — YAML support: Goose + Continue
+  config.yaml (29 tools).** A from-scratch YAML subset parser
+  (src/yaml.rs, zero dependencies): block mappings by indentation,
+  block sequences — including the indentless rule under a mapping
+  key — flow sequences and maps, plain/single/double-quoted scalars
+  with escape handling, quote-aware comment stripping, YAML typing
+  (bools, ints, floats, null; versions like 1.0.0 stay strings),
+  document markers, duplicate-key detection, and clean parse
+  errors for anything outside the subset (anchors, aliases, tags,
+  block scalars, tabs for indentation, unterminated quotes/flows).
+  The output is a serde_json::Value, so YAML configs flow through
+  the same downstream machinery as JSON. Two new read-only tools:
+  Goose (~/.config/goose/config.yaml — the extensions list with
+  transport nesting normalized + item-level env, a documented
+  enabled:false disable flag) and Continue config.yaml (the
+  mcpServers list — a second entry beside the C24 JSON drop-in,
+  which stays the writable path; Continue loads both). 8 parser
+  tests with the real-world Goose/Continue shapes as fixtures.
+  132 tests (82 unit + 50 e2e).

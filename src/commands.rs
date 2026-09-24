@@ -1276,7 +1276,7 @@ fn cmd_add(
 /// Single-line JSON snippet of a freshly written entry, for confirmation.
 fn json_snippet(spec_format: Format, doc: &Value, name: &str) -> Option<String> {
     let key = match spec_format {
-        Format::McpServers | Format::CodexToml | Format::Opencode => "mcpServers",
+        Format::McpServers | Format::CodexToml | Format::Opencode | Format::Yaml => "mcpServers",
         Format::Vscode => "servers",
         Format::Zed => "context_servers",
         Format::Amp => "amp.mcpServers",

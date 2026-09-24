@@ -68,6 +68,24 @@ pub(crate) fn load(spec: &ToolSpec, path: &Path) -> ConfigState {
         Ok(c) => c,
         Err(e) => return ConfigState::ParseError(format!("cannot read file: {e}")),
     };
+    if spec.format == Format::Yaml {
+        return match crate::yaml::parse_yaml(&contents) {
+            Ok(doc) => {
+                let (servers, problems) = format::yaml_servers(spec.id, &doc);
+                let disabled = spec.disable.as_ref().map_or_else(BTreeSet::new, |flag| {
+                    format::yaml_disabled(spec.id, flag, &doc)
+                });
+                ConfigState::Loaded(Box::new(LoadedConfig {
+                    raw: RawDoc::Json(doc),
+                    servers,
+                    disabled,
+                    problems,
+                    editable: false,
+                }))
+            }
+            Err(e) => ConfigState::ParseError(e),
+        };
+    }
     if spec.format == Format::CodexToml {
         return match contents.parse::<toml_edit::DocumentMut>() {
             Ok(doc) => {
