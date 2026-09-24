@@ -10,6 +10,7 @@ mod cli;
 mod commands;
 mod commands_ctx;
 mod commands_doctor;
+mod commands_mutate;
 mod commands_read;
 mod diff;
 mod doctor;
