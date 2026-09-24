@@ -1550,7 +1550,16 @@ fn edit_project_mode_refuses_scopeless_tools() {
     let home = sample_home("edit-project-scope");
     let proj = home.join("proj");
     std::fs::create_dir_all(&proj).unwrap();
-    let out = run(&home, &["edit", "cline", "--print", "--project", "proj"]);
+    let out = run(
+        &home,
+        &[
+            "edit",
+            "cline",
+            "--print",
+            "--project",
+            proj.to_str().unwrap(),
+        ],
+    );
     assert!(!out.status.success());
     assert!(
         stderr(&out).contains("no project-scoped config"),
