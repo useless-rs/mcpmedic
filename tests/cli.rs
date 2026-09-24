@@ -1149,3 +1149,17 @@ fn doctor_probe_reports_mcp_handshake() {
         "unreachable finding missing: {stdout}"
     );
 }
+
+#[test]
+fn doctor_flags_npx_footguns() {
+    let home = temp_home("npx-footgun");
+    std::fs::write(
+        home.join(".claude.json"),
+        r#"{"mcpServers":{"mem":{"command":"npx","args":["@modelcontextprotocol/server-memory@latest"]}}}"#,
+    )
+    .unwrap();
+    let out = run(&home, &["doctor"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("npx without -y"), "{stdout}");
+    assert!(stdout.contains("@latest forces"), "{stdout}");
+}

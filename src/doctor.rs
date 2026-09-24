@@ -145,6 +145,25 @@ fn diagnose_loaded(
                 }
             }
         }
+
+        if let Transport::Stdio { command, args, .. } = transport {
+            if command == "npx" && !args.iter().any(|a| a == "-y" || a == "--yes") {
+                findings.push(Finding {
+                    severity: Severity::Warning,
+                    tool: tool.id,
+                    server: Some(name.clone()),
+                    message: "npx without -y can hang waiting for interactive confirmation when the package is not cached".into(),
+                });
+            }
+            if args.iter().any(|a| a.contains("@latest")) {
+                findings.push(Finding {
+                    severity: Severity::Warning,
+                    tool: tool.id,
+                    server: Some(name.clone()),
+                    message: "@latest forces a registry round-trip on every launch — a common cause of -32001 timeouts; pin an exact version".into(),
+                });
+            }
+        }
     }
 
     if cfg.servers.len() > CONTEXT_BLOAT_THRESHOLD {
@@ -315,6 +334,81 @@ mod tests {
         let findings = diagnose(&tools, Path::new("/home/u"), "");
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, Severity::Critical);
+    }
+
+    #[test]
+    fn npx_without_yes_is_warned() {
+        let mut servers = Servers::new();
+        servers.insert(
+            "hangs".into(),
+            Transport::Stdio {
+                command: "npx".into(),
+                args: vec!["@modelcontextprotocol/server-memory".into()],
+                env: BTreeMap::new(),
+            },
+        );
+        let tools = vec![ToolLoad::new(
+            ToolId::Cursor,
+            Format::McpServers,
+            loaded(servers, vec![]),
+        )];
+        let findings = diagnose(&tools, Path::new("/home/u"), "");
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.severity == Severity::Warning && f.message.contains("npx without -y"))
+        );
+    }
+
+    #[test]
+    fn npx_with_yes_flag_is_clean() {
+        let mut servers = Servers::new();
+        servers.insert(
+            "fine".into(),
+            Transport::Stdio {
+                command: "npx".into(),
+                args: vec!["-y".into(), "@modelcontextprotocol/server-memory".into()],
+                env: BTreeMap::new(),
+            },
+        );
+        let tools = vec![ToolLoad::new(
+            ToolId::Cursor,
+            Format::McpServers,
+            loaded(servers, vec![]),
+        )];
+        let findings = diagnose(&tools, Path::new("/home/u"), "");
+        assert!(
+            !findings
+                .iter()
+                .any(|f| f.message.contains("npx without -y"))
+        );
+    }
+
+    #[test]
+    fn latest_suffix_is_warned() {
+        let mut servers = Servers::new();
+        servers.insert(
+            "slow".into(),
+            Transport::Stdio {
+                command: "npx".into(),
+                args: vec![
+                    "-y".into(),
+                    "@modelcontextprotocol/server-memory@latest".into(),
+                ],
+                env: BTreeMap::new(),
+            },
+        );
+        let tools = vec![ToolLoad::new(
+            ToolId::Cursor,
+            Format::McpServers,
+            loaded(servers, vec![]),
+        )];
+        let findings = diagnose(&tools, Path::new("/home/u"), "");
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.severity == Severity::Warning && f.message.contains("@latest forces"))
+        );
     }
 
     #[test]

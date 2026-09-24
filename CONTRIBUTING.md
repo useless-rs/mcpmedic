@@ -313,3 +313,12 @@ One line per improvement cycle: date, what changed, why.
   the exit is observable via try_wait, which misclassified an
   instantly-crashing server (`sh -c 'exit 1'`) as Reachable. Caught by
   the windows-latest CI job; Linux/macOS observe the exit immediately.
+- **2026-09-24 · cycle 29 — npx footgun detection.** doctor now warns
+  on the two npx patterns behind the most common real-world MCP
+  failure (-32001: Request timed out, per fixmcp's origin story and
+  community reports): (1) `npx` without `-y`/`--yes` — hangs waiting
+  for interactive confirmation when the package is not cached, and
+  (2) any stdio arg containing `@latest` — forces an npm registry
+  round-trip on every launch; pin an exact version instead. Both are
+  static warnings (Warning severity), same pattern as the C25 env
+  var validation. 104 tests (64 unit + 40 e2e).
