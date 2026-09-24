@@ -1333,3 +1333,24 @@ fn openclaw_nested_servers_are_read() {
     assert!(stdout.contains("docs"), "{stdout}");
     assert!(stdout.contains("openclaw"), "{stdout}");
 }
+
+#[test]
+fn doctor_probe_skips_parked_servers() {
+    let home = temp_home("probe-parked");
+    std::fs::create_dir_all(home.join(".kiro").join("settings")).unwrap();
+    std::fs::write(
+        home.join(".kiro").join("settings").join("mcp.json"),
+        r#"{"mcpServers":{"parked":{"command":"definitely-missing-cmd-xyz","args":[],"disabled":true}}}"#,
+    )
+    .unwrap();
+    let out = run(&home, &["--json", "doctor", "--probe", "--tool", "kiro"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        !stdout.contains("definitely-missing-cmd-xyz"),
+        "parked server must not be probed: {stdout}"
+    );
+    assert!(
+        !stdout.contains("unreachable"),
+        "parked server must not produce probe findings: {stdout}"
+    );
+}

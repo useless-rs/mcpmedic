@@ -699,6 +699,9 @@ fn probe_findings(loads: &[ToolLoad]) -> Vec<doctor::Finding> {
             continue;
         };
         for (name, transport) in &cfg.servers {
+            if cfg.disabled.contains(name) {
+                continue;
+            }
             jobs.push((load.id, name.clone(), transport));
         }
     }
