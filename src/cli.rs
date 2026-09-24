@@ -38,6 +38,11 @@ pub(crate) struct Cli {
     #[arg(long, global = true)]
     pub json: bool,
 
+    /// Suppress decorative headers and hints; print only essential rows.
+    /// Exit codes are unchanged. Combine with --json for fully scriptable output.
+    #[arg(long, global = true)]
+    pub quiet: bool,
+
     #[command(subcommand)]
     pub cmd: Option<Cmd>,
 }

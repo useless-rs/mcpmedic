@@ -24,10 +24,11 @@ struct Ctx {
     env: EnvOverrides,
     project: Option<PathBuf>,
     json: bool,
+    quiet: bool,
 }
 
 impl Ctx {
-    fn new(project: Option<PathBuf>, json: bool) -> Self {
+    fn new(project: Option<PathBuf>, json: bool, quiet: bool) -> Self {
         Self {
             home: home_dir(),
             env: EnvOverrides::from_env(),
@@ -39,6 +40,7 @@ impl Ctx {
                 }
             }),
             json,
+            quiet,
         }
     }
 
@@ -94,7 +96,7 @@ fn home_dir() -> PathBuf {
 
 /// Entry point: dispatch a parsed CLI to a command.
 pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
-    let ctx = Ctx::new(cli.project, cli.json);
+    let ctx = Ctx::new(cli.project, cli.json, cli.quiet);
     let Some(cmd) = cli.cmd else {
         return cmd_scan(&ctx);
     };
@@ -373,7 +375,7 @@ fn parse_kv_pairs(items: &[String], flag: &str) -> Result<Vec<(String, String)>,
 
 #[expect(clippy::too_many_lines)]
 fn cmd_scan(ctx: &Ctx) -> ExitCode {
-    if !ctx.json {
+    if !ctx.json && !ctx.quiet {
         println!("{}", report::brand_header());
         if let Some(project) = &ctx.project {
             println!("  project: {}", project.display());
@@ -473,7 +475,7 @@ fn cmd_scan(ctx: &Ctx) -> ExitCode {
     println!(
         "  {configured} tool(s) configured · {total_servers} servers total · {with_findings} with findings"
     );
-    if total_servers > 0 || with_findings > 0 {
+    if (total_servers > 0 || with_findings > 0) && !ctx.quiet {
         println!(
             "  next: `mcpmedic doctor` for a health check, `mcpmedic list` to see every server"
         );
