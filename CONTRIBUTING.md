@@ -473,3 +473,13 @@ One line per improvement cycle: date, what changed, why.
   standard mcpServers — confirmed) and Devin CLI
   (~/.config/devin/config.json + project .devin/config.json —
   confirmed) researched for cycle 43.
+- **2026-09-24 · cycle 43 — OpenHands and Devin CLI added (26
+  tools).** Both verified against first-party docs (the cycle 42
+  research): OpenHands (~/.openhands/mcp.json, standard mcpServers —
+  the same file the OpenHands UI writes; user-level only, no
+  documented project scope or disable flag) and Devin CLI
+  (~/.config/devin/config.json, standard mcpServers; project-scoped
+  at .devin/config.json, the committed-to-repo location — the
+  gitignored .devin/config.local.json override is deliberately not
+  mcpmedic's business). Plain registry additions — zero format
+  changes needed. 114 tests (70 unit + 44 e2e).
