@@ -1516,3 +1516,43 @@ fn edit_broken_editor_fails() {
     assert!(!out.status.success());
     assert!(stderr(&out).contains("failed to launch editor"));
 }
+
+#[test]
+fn scan_quiet_suppresses_brand_and_hints() {
+    let home = sample_home("scan-quiet");
+    let out = run(&home, &["scan", "--quiet"]);
+    assert!(out.status.success());
+    let text = stdout(&out);
+    assert!(!text.contains("first aid"), "brand leaked: {text}");
+    assert!(!text.contains("next:"), "hint leaked: {text}");
+    assert!(text.contains("cursor"), "rows missing: {text}");
+    assert!(text.contains("2 tool(s) configured"), "summary missing: {text}");
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
+fn diff_exit_code_gates_on_drift() {
+    let home = sample_home("diff-exit");
+    let plain = run(&home, &["diff", "cursor", "claude-code"]);
+    assert!(plain.status.success(), "default must stay 0");
+    let gated = run(&home, &["diff", "cursor", "claude-code", "--exit-code"]);
+    assert_eq!(gated.status.code(), Some(1), "drift must exit 1");
+    let same = run(&home, &["diff", "cursor", "cursor", "--exit-code"]);
+    assert!(same.status.success(), "in-sync must stay 0");
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
+fn restore_dry_run_touches_nothing() {
+    let home = sample_home("restore-dry");
+    let added = run(&home, &["add", "tmp-srv", "--to", "cursor", "--command", "sh"]);
+    assert!(added.status.success(), "stderr: {}", stderr(&added));
+    let before = std::fs::read_to_string(home.join(".cursor/mcp.json")).unwrap();
+    let plan = run(&home, &["restore", "--latest", "--dry-run"]);
+    assert!(plan.status.success(), "stderr: {}", stderr(&plan));
+    assert!(stdout(&plan).contains("would restore"), "got: {}", stdout(&plan));
+    let after = std::fs::read_to_string(home.join(".cursor/mcp.json")).unwrap();
+    assert_eq!(before, after, "dry run must not write");
+    assert!(after.contains("tmp-srv"), "added server must survive plan");
+    let _ = std::fs::remove_dir_all(&home);
+}
