@@ -8,6 +8,8 @@
 mod audit;
 mod cli;
 mod commands;
+mod commands_ctx;
+mod commands_read;
 mod diff;
 mod doctor;
 mod format;
