@@ -666,3 +666,10 @@ One line per improvement cycle: date, what changed, why.
   which stays the writable path; Continue loads both). 8 parser
   tests with the real-world Goose/Continue shapes as fixtures.
   132 tests (82 unit + 50 e2e).
+- **2026-09-24 · crates.io — mcpmedic 0.14.0 published.** `cargo
+  publish` run from the v0.14.0 tag state (detached checkout,
+  clean tree) so the registry artifact matches the tag byte for
+  byte; dry-run first, then the real upload. 33 files, runtime deps
+  stay clap/serde/toml_edit/dirs/colored/thiserror. The README's
+  `cargo install mcpmedic` instruction is now live; crates.io
+  confirms max_version 0.14.0.
