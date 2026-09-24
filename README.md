@@ -40,7 +40,7 @@ doesn't own, always atomically, always with an automatic backup first.
 
 ## Highlights
 
-- 🩺 **`doctor`** — parse errors, dead `command:` paths, VS Code entries
+- 🩺 **`doctor`** — parse errors, dead `command:` paths, unset `${VAR}` env references, VS Code entries
   missing their mandatory `type`, remote entries whose `type` spelling their
   tool can't read, cross-tool config drift, duplicate servers, and
   context-window bloat warnings — and **`--fix`** applies the provably safe
@@ -224,7 +224,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `scan` (default) | Detect installed tools and their configs, with server counts |
 | `list [--tool <t>]` | Table of every server per tool |
 | `show <name>` | Every tool that configures a given server + drift check |
-| `doctor [--tool <t>] [--strict] [--fix] [--probe]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat. `--fix` applies safe auto-repairs (`--dry-run` previews); `--probe` verifies each server is reachable (spawn stdio 500ms, TCP connect 3s) |
+| `doctor [--tool <t>] [--strict] [--fix] [--probe]` | Health check: broken JSON, dead commands, dialect violations, cross-tool drift, bloat, unset `${VAR}` env references (e.g. `${GITHUB_TOKEN}` or `${env:API_KEY}` referenced in `env`/`headers` but not present in the environment). `--fix` applies safe auto-repairs (`--dry-run` previews); `--probe` verifies each server is reachable (spawn stdio 500ms, TCP connect 3s) |
 | `diff <a> <b>` | Server drift between two tools |
 | `add <name> --to <t> ...` | Add a stdio (`--command ... -- args`) or remote (`--url`) server |
 | `rm <name> --from <t>` | Remove one server |

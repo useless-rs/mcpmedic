@@ -126,6 +126,25 @@ fn diagnose_loaded(
                 });
             }
         }
+
+        let env_map = match transport {
+            Transport::Stdio { env, .. } => env,
+            Transport::Remote { headers, .. } => headers,
+        };
+        for (key, value) in env_map {
+            for var_name in extract_env_var_refs(value) {
+                if std::env::var_os(&var_name).is_none() {
+                    findings.push(Finding {
+                        severity: Severity::Warning,
+                        tool: tool.id,
+                        server: Some(name.clone()),
+                        message: format!(
+                            "env var `{var_name}` referenced in `{key}` is not set in this environment"
+                        ),
+                    });
+                }
+            }
+        }
     }
 
     if cfg.servers.len() > CONTEXT_BLOAT_THRESHOLD {
@@ -220,6 +239,45 @@ pub(crate) fn command_exists(command: &str, path_env: &str, home: &Path) -> bool
         }
         false
     })
+}
+
+/// Extract variable names from `${VAR}` or `${env:VAR}` template patterns
+/// in a config value.
+pub(crate) fn extract_env_var_refs(value: &str) -> Vec<String> {
+    let mut vars = Vec::new();
+    let chars: Vec<char> = value.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '$' && i + 1 < chars.len() && chars[i + 1] == '{' {
+            let mut j = i + 2;
+            let mut var = String::new();
+            while j < chars.len() && chars[j] != '}' {
+                var.push(chars[j]);
+                j += 1;
+            }
+            if j < chars.len() {
+                let name = var.strip_prefix("env:").unwrap_or(&var).to_string();
+                let first_ok = name
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c.is_alphabetic() || c == '_');
+                if first_ok
+                    && name
+                        .chars()
+                        .skip(1)
+                        .all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    vars.push(name);
+                }
+                i = j + 1;
+            } else {
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+    vars
 }
 
 #[cfg(test)]
@@ -361,6 +419,23 @@ mod tests {
                 .iter()
                 .any(|f| f.severity == Severity::Info && f.message.contains("identical"))
         );
+    }
+
+    #[test]
+    fn extracts_env_var_references() {
+        assert_eq!(
+            extract_env_var_refs("${GITHUB_TOKEN}"),
+            vec!["GITHUB_TOKEN"]
+        );
+        assert_eq!(extract_env_var_refs("${env:MY_KEY}"), vec!["MY_KEY"]);
+        assert_eq!(
+            extract_env_var_refs("Bearer ${env:API_KEY} extra ${OTHER}"),
+            vec!["API_KEY", "OTHER"]
+        );
+        assert!(extract_env_var_refs("no templates here").is_empty());
+        assert!(extract_env_var_refs("$NOT_BRACED").is_empty());
+        assert!(extract_env_var_refs("${}").is_empty());
+        assert!(extract_env_var_refs("${1abc}").is_empty());
     }
 
     #[test]

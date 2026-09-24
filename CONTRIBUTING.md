@@ -267,3 +267,12 @@ One line per improvement cycle: date, what changed, why.
   (config.yaml with mcpServers as a list, not a map) — the JSON drop-in
   is the documented compatibility path for users coming from other tools.
   92 tests.
+- **2026-09-24 · cycle 25 — doctor env var validation.** doctor now
+  warns when a config references ${VAR} or ${env:VAR} in a server's env
+  map or headers but that variable is not set in the current environment
+  — the classic "configured but fails at runtime: missing API key"
+  failure mode, caught before the IDE ever spawns the server. Template
+  extraction handles ${VAR} (Warp/Claude style), ${env:VAR} (VS Code
+  style), multiple references per value, and rejects invalid POSIX
+  names (leading digit, symbols). Warning severity only: the var may be
+  set when the IDE actually runs the server. 93 tests.
