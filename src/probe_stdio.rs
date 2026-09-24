@@ -10,6 +10,11 @@ use std::process::Command;
 use std::time::Duration;
 
 use crate::probe::{Probe, ProbeBudget};
+use crate::probe_msg::{
+    DiscoverOutcome, ToolsReply, classify_discover, classify_failure, discover_message,
+    initialize_message, initialized_notification, is_jsonrpc_message, modern_tools_list_message,
+    parse_success, tools_count_from_response, tools_list_message,
+};
 
 const EXIT_GRACE_MS: u64 = 500;
 const STDERR_TAIL_CHARS: usize = 300;
@@ -126,51 +131,6 @@ fn try_wait_bounded(
     }
 }
 
-enum DiscoverOutcome {
-    Modern {
-        server: String,
-        versions: Vec<String>,
-    },
-    Legacy,
-}
-
-fn classify_discover(line: &str) -> DiscoverOutcome {
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
-        return DiscoverOutcome::Legacy;
-    };
-    if let Some(versions) = v
-        .pointer("/result/supportedVersions")
-        .and_then(serde_json::Value::as_array)
-    {
-        let versions: Vec<String> = versions
-            .iter()
-            .filter_map(|x| x.as_str().map(str::to_string))
-            .collect();
-        let server = v
-            .pointer("/result/_meta/io.modelcontextprotocol~1serverInfo/name")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("unknown")
-            .to_string();
-        return DiscoverOutcome::Modern { server, versions };
-    }
-    if v.pointer("/error/code").and_then(serde_json::Value::as_i64) == Some(-32022) {
-        let versions: Vec<String> = v
-            .pointer("/error/data/supported")
-            .and_then(serde_json::Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|x| x.as_str().map(str::to_string))
-                    .collect()
-            })
-            .unwrap_or_default();
-        return DiscoverOutcome::Modern {
-            server: "unknown".into(),
-            versions,
-        };
-    }
-    DiscoverOutcome::Legacy
-}
-
 fn fetch_modern_tool_count(
     stdin: &mut Option<std::process::ChildStdin>,
     rx: &std::sync::mpsc::Receiver<Option<String>>,
@@ -195,44 +155,6 @@ fn fetch_modern_tool_count(
             _ => return None,
         }
     }
-}
-
-fn modern_tools_list_message() -> String {
-    serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 2,
-        "method": "tools/list",
-        "params": {
-            "_meta": {
-                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-                "io.modelcontextprotocol/clientInfo": {
-                    "name": "mcpmedic",
-                    "version": env!("CARGO_PKG_VERSION")
-                },
-                "io.modelcontextprotocol/clientCapabilities": {}
-            }
-        }
-    })
-    .to_string()
-}
-
-fn discover_message() -> String {
-    serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "server/discover",
-        "params": {
-            "_meta": {
-                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-                "io.modelcontextprotocol/clientInfo": {
-                    "name": "mcpmedic",
-                    "version": env!("CARGO_PKG_VERSION")
-                },
-                "io.modelcontextprotocol/clientCapabilities": {}
-            }
-        }
-    })
-    .to_string()
 }
 
 fn send_legacy_initialize(stdin: &mut Option<std::process::ChildStdin>) {
@@ -291,30 +213,6 @@ fn exit_message(
     msg
 }
 
-fn initialize_message() -> String {
-    serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-            "protocolVersion": "2025-11-25",
-            "capabilities": {},
-            "clientInfo": {
-                "name": "mcpmedic",
-                "version": env!("CARGO_PKG_VERSION")
-            }
-        }
-    })
-    .to_string()
-}
-
-fn is_jsonrpc_message(line: &str) -> bool {
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
-        return false;
-    };
-    v.get("jsonrpc").is_some() && (v.get("result").is_some() || v.get("error").is_some())
-}
-
 fn fetch_tool_count(
     stdin: &mut Option<std::process::ChildStdin>,
     rx: &std::sync::mpsc::Receiver<Option<String>>,
@@ -341,72 +239,6 @@ fn fetch_tool_count(
             _ => return None,
         }
     }
-}
-
-fn initialized_notification() -> String {
-    serde_json::json!({
-        "jsonrpc": "2.0",
-        "method": "notifications/initialized"
-    })
-    .to_string()
-}
-
-fn tools_list_message() -> String {
-    serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 2,
-        "method": "tools/list",
-        "params": {}
-    })
-    .to_string()
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum ToolsReply {
-    NotIt,
-    Count(usize),
-    Unknown,
-}
-
-fn tools_count_from_response(line: &str) -> ToolsReply {
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
-        return ToolsReply::NotIt;
-    };
-    if v.get("id").and_then(serde_json::Value::as_i64) != Some(2) {
-        return ToolsReply::NotIt;
-    }
-    match v
-        .pointer("/result/tools")
-        .and_then(serde_json::Value::as_array)
-    {
-        Some(tools) => ToolsReply::Count(tools.len()),
-        None => ToolsReply::Unknown,
-    }
-}
-
-fn parse_success(line: &str) -> Option<(String, String)> {
-    let v = serde_json::from_str::<serde_json::Value>(line).ok()?;
-    let name = v
-        .pointer("/result/serverInfo/name")
-        .and_then(serde_json::Value::as_str)?;
-    let protocol = v
-        .pointer("/result/protocolVersion")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("unknown");
-    Some((name.to_string(), protocol.to_string()))
-}
-
-fn classify_failure(line: &str) -> Probe {
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
-        return Probe::Reachable("replied with non-JSON output".into());
-    };
-    if let Some(err) = v
-        .pointer("/error/message")
-        .and_then(serde_json::Value::as_str)
-    {
-        return Probe::Reachable(format!("MCP error: {err}"));
-    }
-    Probe::Reachable("replied, but without an MCP initialize result".into())
 }
 
 #[cfg(test)]
