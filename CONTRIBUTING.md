@@ -322,3 +322,12 @@ One line per improvement cycle: date, what changed, why.
   round-trip on every launch; pin an exact version instead. Both are
   static warnings (Warning severity), same pattern as the C25 env
   var validation. 104 tests (64 unit + 40 e2e).
+- **2026-09-24 · cycle 30 — v0.6.0 released.** Version bump 0.5.0 →
+  0.6.0 shipping two features: doctor --probe now speaks MCP (real
+  JSON-RPC initialize handshake over stdio that reports each server's
+  own name and protocol version, plus the Windows EOF-before-exit
+  race fix) and npx footgun detection (npx without -y hang risk,
+  @latest registry round-trips — the #1 cause of -32001 timeouts).
+  5-platform binaries (linux amd64/arm64, macOS amd64/arm64, Windows
+  x86_64), Homebrew tap updated with v0.6.0 sha256 hashes. 104 tests
+  (64 unit + 40 e2e).
