@@ -41,7 +41,10 @@ pub(crate) const PRESETS: &[Preset] = &[
 ];
 
 pub(crate) fn find(name: &str) -> Option<&'static Preset> {
-    PRESETS.iter().find(|p| p.name == name)
+    let needle = name.trim().to_ascii_lowercase();
+    PRESETS
+        .iter()
+        .find(|p| p.name.to_ascii_lowercase() == needle)
 }
 
 #[cfg(test)]
@@ -70,5 +73,11 @@ mod tests {
         assert!(find("minimal").is_some());
         assert!(find("demo").is_some());
         assert!(find("nope").is_none());
+    }
+
+    #[test]
+    fn find_ignores_case_and_whitespace() {
+        assert!(find("Minimal").is_some());
+        assert!(find(" DEMO ").is_some());
     }
 }
