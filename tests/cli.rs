@@ -1526,7 +1526,10 @@ fn scan_quiet_suppresses_brand_and_hints() {
     assert!(!text.contains("first aid"), "brand leaked: {text}");
     assert!(!text.contains("next:"), "hint leaked: {text}");
     assert!(text.contains("cursor"), "rows missing: {text}");
-    assert!(text.contains("2 tool(s) configured"), "summary missing: {text}");
+    assert!(
+        text.contains("2 tool(s) configured"),
+        "summary missing: {text}"
+    );
     let _ = std::fs::remove_dir_all(&home);
 }
 
@@ -1545,12 +1548,19 @@ fn diff_exit_code_gates_on_drift() {
 #[test]
 fn restore_dry_run_touches_nothing() {
     let home = sample_home("restore-dry");
-    let added = run(&home, &["add", "tmp-srv", "--to", "cursor", "--command", "sh"]);
+    let added = run(
+        &home,
+        &["add", "tmp-srv", "--to", "cursor", "--command", "sh"],
+    );
     assert!(added.status.success(), "stderr: {}", stderr(&added));
     let before = std::fs::read_to_string(home.join(".cursor/mcp.json")).unwrap();
     let plan = run(&home, &["restore", "--latest", "--dry-run"]);
     assert!(plan.status.success(), "stderr: {}", stderr(&plan));
-    assert!(stdout(&plan).contains("would restore"), "got: {}", stdout(&plan));
+    assert!(
+        stdout(&plan).contains("would restore"),
+        "got: {}",
+        stdout(&plan)
+    );
     let after = std::fs::read_to_string(home.join(".cursor/mcp.json")).unwrap();
     assert_eq!(before, after, "dry run must not write");
     assert!(after.contains("tmp-srv"), "added server must survive plan");
