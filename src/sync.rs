@@ -29,7 +29,7 @@ pub(crate) fn plan(from: &Servers, to: &Servers, names: &[String], force: bool) 
     let mut unknown = Vec::new();
 
     for requested in names {
-        if !from.contains_key(requested) {
+        if !from.contains_key(requested) && !unknown.contains(requested) {
             unknown.push(requested.clone());
         }
     }
@@ -109,6 +109,14 @@ mod tests {
         let p = plan(&from, &to, &["a".to_owned(), "zzz".to_owned()], false);
         assert_eq!(p.to_add.len(), 1);
         assert_eq!(p.to_add[0].0, "a");
+        assert_eq!(p.unknown, vec!["zzz".to_owned()]);
+    }
+
+    #[test]
+    fn unknown_names_are_deduped() {
+        let from = Servers::new();
+        let to = Servers::new();
+        let p = plan(&from, &to, &["zzz".to_owned(), "zzz".to_owned()], false);
         assert_eq!(p.unknown, vec!["zzz".to_owned()]);
     }
 
