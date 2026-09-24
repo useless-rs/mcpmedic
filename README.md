@@ -77,7 +77,7 @@ doesn't own, always atomically, always with an automatic backup first.
 - 🛡️ **Read-only where writing is unsafe** — JSONC configs (with comments) and
   opencode are read and diagnosed but never rewritten
 - ⚡ **Single static binary**, no Node runtime, no daemon, no config of its own
-- ✅ **114 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 29 tools
+- ✅ **136 tests**, `clippy::pedantic` clean, cross-platform (Linux / macOS / Windows), 29 tools
 
 ## Supported tools
 
@@ -255,6 +255,7 @@ mcpmedic add github --to vscode --url https://api.githubcopilot.com/mcp/ --proje
 | `backup [--tool <t>]` | Manual backup (also automatic before every mutation) |
 | `restore [--tool <t>] [--list] [--latest]` | Restore configs from automatic backups; the current state is backed up first, so restores are reversible |
 | `summary` | One-line health overview (tools, servers, findings) for shell prompts and CI gates; exits 1 on criticals |
+| `edit <tool> [--print]` | Open a tool's config file in your editor (`$VISUAL` → `$EDITOR`, else vi/notepad); `--print` shows the resolved path instead |
 
 All commands accept `--project <dir>` to operate on repo-checked-in configs
 instead of user-global files; all mutation commands support `--dry-run`.

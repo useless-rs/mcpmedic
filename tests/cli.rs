@@ -1466,3 +1466,53 @@ fn yaml_tools_are_read_end_to_end() {
     assert_eq!(servers[0]["name"], "sqlite");
     assert_eq!(servers[0]["transport"], "stdio");
 }
+
+#[test]
+fn edit_print_reports_config_path() {
+    let home = temp_home("edit-print");
+    write(
+        &home,
+        ".claude.json",
+        r#"{"mcpServers": {"x": {"command": "sh"}}}"#,
+    );
+    let out = run(&home, &["edit", "claude-code", "--print"]);
+    assert!(out.status.success());
+    assert!(stdout(&out).contains(".claude.json"));
+}
+
+#[test]
+fn edit_missing_config_fails() {
+    let home = temp_home("edit-missing");
+    let out = run(&home, &["edit", "claude-code", "--print"]);
+    assert!(!out.status.success());
+    assert!(stderr(&out).contains("no config found"));
+}
+
+#[test]
+fn edit_unknown_tool_fails() {
+    let home = temp_home("edit-unknown");
+    let out = run(&home, &["edit", "nosuchtool", "--print"]);
+    assert!(!out.status.success());
+    assert!(stderr(&out).contains("unknown tool"));
+}
+
+#[test]
+fn edit_broken_editor_fails() {
+    let home = temp_home("edit-broken-editor");
+    write(
+        &home,
+        ".claude.json",
+        r#"{"mcpServers": {"x": {"command": "sh"}}}"#,
+    );
+    let out = Command::new(env!("CARGO_BIN_EXE_mcpmedic"))
+        .args(["edit", "claude-code"])
+        .env("HOME", &home)
+        .env("USERPROFILE", &home)
+        .env("NO_COLOR", "1")
+        .env("VISUAL", "definitely-not-an-editor-xyz")
+        .env("EDITOR", "definitely-not-an-editor-xyz")
+        .output()
+        .expect("failed to run mcpmedic");
+    assert!(!out.status.success());
+    assert!(stderr(&out).contains("failed to launch editor"));
+}

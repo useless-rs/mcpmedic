@@ -277,6 +277,15 @@ pub(crate) enum Cmd {
         #[arg(long)]
         tool: Option<String>,
     },
+
+    /// Open a tool's config file in your editor.
+    Edit {
+        /// Tool whose config to open (id or display name).
+        tool: String,
+        /// Print the resolved config path instead of opening it.
+        #[arg(long)]
+        print: bool,
+    },
 }
 
 #[derive(Debug, clap::Subcommand)]

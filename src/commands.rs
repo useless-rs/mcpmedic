@@ -112,6 +112,7 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
         },
         Cmd::List { tool } => cmd_list(&ctx, tool.as_deref()),
         Cmd::Show { name } => cmd_show(&ctx, &name),
+        Cmd::Edit { tool, print } => cmd_edit(&ctx, &tool, print),
         Cmd::Doctor {
             tool,
             strict,
@@ -190,6 +191,52 @@ fn cmd_completions(shell: clap_complete::Shell) -> ExitCode {
 fn fail(message: &str) -> ExitCode {
     eprintln!("{}", report::error_line(message));
     ExitCode::from(2)
+}
+
+fn cmd_edit(ctx: &Ctx, tool: &str, print: bool) -> ExitCode {
+    let Ok(spec) = resolve(tool) else {
+        return fail(&format!("unknown tool `{tool}`"));
+    };
+    let path = ctx.path(spec);
+    if !path.exists() {
+        return fail(&format!(
+            "no config found for {} at {} — add one first with `mcpmedic add` or `mcpmedic preset add`",
+            spec.display,
+            display_path(&path, &ctx.home)
+        ));
+    }
+    if ctx.json {
+        print_json(&json!({
+            "tool": spec.id.as_str(),
+            "display": spec.display,
+            "path": path.display().to_string(),
+        }));
+        return ExitCode::SUCCESS;
+    }
+    if print {
+        println!("{}", path.display());
+        return ExitCode::SUCCESS;
+    }
+    let editor = default_editor();
+    match std::process::Command::new(&editor).arg(&path).status() {
+        Ok(status) if status.success() => ExitCode::SUCCESS,
+        Ok(status) => fail(&format!("editor `{editor}` exited with {status}")),
+        Err(e) => fail(&format!("failed to launch editor `{editor}`: {e}")),
+    }
+}
+
+fn default_editor() -> String {
+    std::env::var("VISUAL")
+        .ok()
+        .or_else(|| std::env::var("EDITOR").ok())
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| {
+            if cfg!(windows) {
+                "notepad".to_string()
+            } else {
+                "vi".to_string()
+            }
+        })
 }
 
 fn resolve(name: &str) -> Result<&'static ToolSpec, String> {
