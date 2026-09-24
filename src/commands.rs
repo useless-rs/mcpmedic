@@ -14,9 +14,9 @@ use crate::commands_portable::{cmd_backup, cmd_export, cmd_import, cmd_restore};
 use crate::commands_read::{cmd_list, cmd_scan, cmd_show};
 use crate::commands_sync::{cmd_sync, cmd_sync_all};
 use crate::doctor::{self, Severity, ToolLoad};
-use crate::registry::{self, ToolId, ToolSpec};
+use crate::registry::ToolSpec;
 use crate::report;
-use crate::store::{self, ConfigState, backups_dir};
+use crate::store::ConfigState;
 
 /// Entry point: dispatch a parsed CLI to a command.
 pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {

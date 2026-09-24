@@ -7,7 +7,7 @@ use std::process::ExitCode;
 
 use serde_json::{Value, json};
 
-use crate::commands_ctx::{Ctx, commit, display_path, fail, print_json, resolve};
+use crate::commands_ctx::{Ctx, commit, fail, resolve};
 use crate::commands_mutate::{load_mutable, write_entry};
 use crate::format::{self, Format};
 use crate::model::Transport;
