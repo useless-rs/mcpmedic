@@ -12,6 +12,7 @@ use crate::cli::Cmd;
 use crate::diff;
 use crate::doctor::{self, Severity, ToolLoad};
 use crate::format::{self, Format};
+use crate::format_toml;
 use crate::model::{Servers, Transport};
 use crate::registry::{self, EnvOverrides, ToolId, ToolSpec};
 use crate::report;
@@ -344,14 +345,14 @@ fn write_entry(
 ) -> Result<(), String> {
     match raw {
         RawDoc::Json(doc) => format::write_json_entry(spec.format, spec.id, doc, name, transport),
-        RawDoc::Toml(doc) => format::write_toml_entry(doc, name, transport),
+        RawDoc::Toml(doc) => format_toml::write_toml_entry(doc, name, transport),
     }
 }
 
 fn remove_entry(spec_format: Format, raw: &mut RawDoc, name: &str) -> Result<bool, String> {
     match raw {
         RawDoc::Json(doc) => Ok(format::remove_json_entry(spec_format, doc, name)),
-        RawDoc::Toml(doc) => format::remove_toml_entry(doc, name),
+        RawDoc::Toml(doc) => format_toml::remove_toml_entry(doc, name),
     }
 }
 
@@ -1427,7 +1428,7 @@ fn cmd_set_enabled(ctx: &Ctx, name: &str, from: &str, enable: bool, dry_run: boo
     let off = !enable;
     let changed = match &mut cfg.raw {
         RawDoc::Json(doc) => format::set_json_disabled(flag, spec.format, doc, name, off),
-        RawDoc::Toml(doc) => match format::set_toml_disabled(flag, doc, name, off) {
+        RawDoc::Toml(doc) => match format_toml::set_toml_disabled(flag, doc, name, off) {
             Ok(found) => found,
             Err(e) => return fail(&e),
         },

@@ -11,6 +11,7 @@ mod commands;
 mod diff;
 mod doctor;
 mod format;
+mod format_toml;
 mod model;
 mod presets;
 mod probe;

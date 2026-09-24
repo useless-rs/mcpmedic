@@ -11,6 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use crate::format::{self, Format};
+use crate::format_toml;
 use crate::model::Servers;
 use crate::registry::ToolSpec;
 
@@ -90,11 +91,11 @@ pub(crate) fn load(spec: &ToolSpec, path: &Path) -> ConfigState {
     if spec.format == Format::CodexToml {
         return match contents.parse::<toml_edit::DocumentMut>() {
             Ok(doc) => {
-                let (servers, problems) = format::toml_servers(&doc);
+                let (servers, problems) = format_toml::toml_servers(&doc);
                 let disabled = spec
                     .disable
                     .as_ref()
-                    .map_or_else(BTreeSet::new, |flag| format::toml_disabled(flag, &doc));
+                    .map_or_else(BTreeSet::new, |flag| format_toml::toml_disabled(flag, &doc));
                 ConfigState::Loaded(Box::new(LoadedConfig {
                     raw: RawDoc::Toml(doc),
                     servers,
