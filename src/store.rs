@@ -179,9 +179,8 @@ pub(crate) fn persist(
         let dir = backups_dir(home);
         fs::create_dir_all(&dir)?;
         restrict_dir_unix(&dir);
-        let millis = epoch_millis();
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("json");
-        let target = dir.join(format!("{backup_stem}-{millis}.{ext}"));
+        let target = crate::store_backups::backup_path(&dir, backup_stem, ext, epoch_millis());
         fs::copy(path, &target)?;
         restrict_file_unix(&target);
         Some(target)

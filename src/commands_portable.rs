@@ -282,12 +282,16 @@ pub(crate) fn cmd_backup(ctx: &Ctx, tool: Option<&str>) -> ExitCode {
         if !path.exists() {
             continue;
         }
-        let millis = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or_default();
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("json");
-        let target = dir.join(format!("{}-{millis}.{ext}", spec.id.as_str()));
+        let target = crate::store_backups::backup_path(
+            &dir,
+            spec.id.as_str(),
+            ext,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or_default(),
+        );
         match std::fs::copy(&path, &target) {
             Ok(_) => {
                 count += 1;
