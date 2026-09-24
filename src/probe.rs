@@ -9,13 +9,37 @@ use std::time::Duration;
 
 use crate::model::Transport;
 
-const DISCOVER_TIMEOUT_MS: u64 = 1000;
-const HANDSHAKE_TIMEOUT_MS: u64 = 3000;
-const TOOLS_TIMEOUT_MS: u64 = 2000;
 const EXIT_GRACE_MS: u64 = 500;
 const STDERR_TAIL_CHARS: usize = 300;
 const STDERR_HANDOFF_MS: u64 = 150;
-const TCP_TIMEOUT_SECS: u64 = 3;
+
+/// Per-exchange probe time budget. Derived from one base (the
+/// handshake wait) so every phase scales together: discover gets a
+/// third, tools two thirds, TCP connect the same in seconds.
+#[derive(Clone, Copy)]
+pub(crate) struct ProbeBudget {
+    pub discover_ms: u64,
+    pub handshake_ms: u64,
+    pub tools_ms: u64,
+    pub tcp_secs: u64,
+}
+
+impl ProbeBudget {
+    pub(crate) fn from_base(timeout_ms: u64) -> Self {
+        Self {
+            discover_ms: timeout_ms / 3,
+            handshake_ms: timeout_ms,
+            tools_ms: timeout_ms.saturating_mul(2) / 3,
+            tcp_secs: (timeout_ms / 1000).max(1),
+        }
+    }
+}
+
+impl Default for ProbeBudget {
+    fn default() -> Self {
+        Self::from_base(3000)
+    }
+}
 
 /// Result of a reachability probe on one server.
 #[derive(Debug)]
@@ -47,14 +71,19 @@ pub(crate) enum Probe {
 }
 
 /// Probe one server's transport for reachability.
-pub(crate) fn probe_transport(transport: &Transport) -> Probe {
+pub(crate) fn probe_transport(transport: &Transport, budget: ProbeBudget) -> Probe {
     match transport {
-        Transport::Stdio { command, args, env } => probe_stdio(command, args, env),
-        Transport::Remote { url, .. } => probe_remote(url),
+        Transport::Stdio { command, args, env } => probe_stdio(command, args, env, budget),
+        Transport::Remote { url, .. } => probe_remote(url, budget),
     }
 }
 
-fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -> Probe {
+fn probe_stdio(
+    command: &str,
+    args: &[String],
+    env: &BTreeMap<String, String>,
+    budget: ProbeBudget,
+) -> Probe {
     if command.contains("${") || command.contains('%') {
         return Probe::Skipped("templated command — resolved by the tool itself".into());
     }
@@ -112,10 +141,10 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
         let _ = err_tx.send(tail);
     });
 
-    let verdict = match rx.recv_timeout(Duration::from_millis(DISCOVER_TIMEOUT_MS)) {
+    let verdict = match rx.recv_timeout(Duration::from_millis(budget.discover_ms)) {
         Ok(Some(line)) => match classify_discover(&line) {
             DiscoverOutcome::Modern { server, versions } => {
-                let tools = fetch_modern_tool_count(&mut stdin, &rx);
+                let tools = fetch_modern_tool_count(&mut stdin, &rx, budget);
                 Probe::ModernOk {
                     server,
                     versions,
@@ -124,7 +153,7 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
             }
             DiscoverOutcome::Legacy => {
                 send_legacy_initialize(&mut stdin);
-                legacy_handshake_phase(&mut stdin, &rx, &mut child, &err_rx)
+                legacy_handshake_phase(&mut stdin, &rx, &mut child, &err_rx, budget)
             }
         },
         Ok(None) => match try_wait_bounded(&mut child, EXIT_GRACE_MS) {
@@ -133,7 +162,7 @@ fn probe_stdio(command: &str, args: &[String], env: &BTreeMap<String, String>) -
         },
         Err(_) => {
             send_legacy_initialize(&mut stdin);
-            legacy_handshake_phase(&mut stdin, &rx, &mut child, &err_rx)
+            legacy_handshake_phase(&mut stdin, &rx, &mut child, &err_rx, budget)
         }
     };
     drop(stdin);
@@ -208,12 +237,13 @@ fn classify_discover(line: &str) -> DiscoverOutcome {
 fn fetch_modern_tool_count(
     stdin: &mut Option<std::process::ChildStdin>,
     rx: &std::sync::mpsc::Receiver<Option<String>>,
+    budget: ProbeBudget,
 ) -> Option<usize> {
     let w = stdin.as_mut()?;
     let _ = w.write_all(modern_tools_list_message().as_bytes());
     let _ = w.write_all(b"\n");
     let _ = w.flush();
-    let deadline = std::time::Instant::now() + Duration::from_millis(TOOLS_TIMEOUT_MS);
+    let deadline = std::time::Instant::now() + Duration::from_millis(budget.tools_ms);
     loop {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
         if remaining.is_zero() {
@@ -281,11 +311,12 @@ fn legacy_handshake_phase(
     rx: &std::sync::mpsc::Receiver<Option<String>>,
     child: &mut std::process::Child,
     err_rx: &std::sync::mpsc::Receiver<String>,
+    budget: ProbeBudget,
 ) -> Probe {
-    match rx.recv_timeout(Duration::from_millis(HANDSHAKE_TIMEOUT_MS)) {
+    match rx.recv_timeout(Duration::from_millis(budget.handshake_ms)) {
         Ok(Some(line)) => match parse_success(&line) {
             Some((server, protocol)) => {
-                let tools = fetch_tool_count(stdin, rx);
+                let tools = fetch_tool_count(stdin, rx, budget);
                 Probe::McpOk {
                     server,
                     protocol,
@@ -300,9 +331,10 @@ fn legacy_handshake_phase(
         },
         Err(_) => match child.try_wait() {
             Ok(Some(status)) => Probe::Unreachable(exit_message(status, err_rx)),
-            _ => Probe::Reachable(
-                "no MCP initialize response within 3s (slow startup is common)".into(),
-            ),
+            _ => Probe::Reachable(format!(
+                "no MCP initialize response within {}s (slow startup is common)",
+                (budget.handshake_ms / 1000).max(1)
+            )),
         },
     }
 }
@@ -349,6 +381,7 @@ fn is_jsonrpc_message(line: &str) -> bool {
 fn fetch_tool_count(
     stdin: &mut Option<std::process::ChildStdin>,
     rx: &std::sync::mpsc::Receiver<Option<String>>,
+    budget: ProbeBudget,
 ) -> Option<usize> {
     let w = stdin.as_mut()?;
     let _ = w.write_all(initialized_notification().as_bytes());
@@ -356,7 +389,7 @@ fn fetch_tool_count(
     let _ = w.write_all(tools_list_message().as_bytes());
     let _ = w.write_all(b"\n");
     let _ = w.flush();
-    let deadline = std::time::Instant::now() + Duration::from_millis(TOOLS_TIMEOUT_MS);
+    let deadline = std::time::Instant::now() + Duration::from_millis(budget.tools_ms);
     loop {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
         if remaining.is_zero() {
@@ -439,7 +472,7 @@ fn classify_failure(line: &str) -> Probe {
     Probe::Reachable("replied, but without an MCP initialize result".into())
 }
 
-fn probe_remote(url: &str) -> Probe {
+fn probe_remote(url: &str, budget: ProbeBudget) -> Probe {
     let Some((host, port)) = extract_host_port(url) else {
         return Probe::Skipped(format!("cannot parse URL `{url}`"));
     };
@@ -450,7 +483,7 @@ fn probe_remote(url: &str) -> Probe {
     let Some(sock_addr) = addrs.next() else {
         return Probe::Unreachable("no addresses found".into());
     };
-    match TcpStream::connect_timeout(&sock_addr, Duration::from_secs(TCP_TIMEOUT_SECS)) {
+    match TcpStream::connect_timeout(&sock_addr, Duration::from_secs(budget.tcp_secs)) {
         Ok(_) => Probe::Reachable(format!("connected to {sock_addr}")),
         Err(e) => Probe::Unreachable(format!("connect failed: {e}")),
     }
@@ -489,7 +522,7 @@ mod tests {
             args: vec!["-c".into(), "sleep 5".into()],
             env: BTreeMap::new(),
         };
-        match probe_transport(&transport) {
+        match probe_transport(&transport, ProbeBudget::default()) {
             Probe::Reachable(msg) => {
                 assert!(msg.contains("no MCP initialize response"), "{msg}");
             }
@@ -513,7 +546,7 @@ mod tests {
             ],
             env: BTreeMap::new(),
         };
-        match probe_transport(&transport) {
+        match probe_transport(&transport, ProbeBudget::default()) {
             Probe::McpOk {
                 server,
                 protocol,
@@ -542,7 +575,7 @@ mod tests {
             ],
             env: BTreeMap::new(),
         };
-        match probe_transport(&transport) {
+        match probe_transport(&transport, ProbeBudget::default()) {
             Probe::McpOk { server, tools, .. } => {
                 assert_eq!(server, "banner");
                 assert_eq!(tools, None, "server exits after initialize: tools unknown");
@@ -583,7 +616,7 @@ mod tests {
             ],
             env: BTreeMap::new(),
         };
-        match probe_transport(&transport) {
+        match probe_transport(&transport, ProbeBudget::default()) {
             Probe::Reachable(msg) => assert!(msg.contains("boom"), "{msg}"),
             other => panic!("expected Reachable, got {other:?}"),
         }
@@ -603,7 +636,7 @@ mod tests {
             ],
             env: BTreeMap::new(),
         };
-        match probe_transport(&transport) {
+        match probe_transport(&transport, ProbeBudget::default()) {
             Probe::ModernOk {
                 server,
                 versions,
@@ -625,7 +658,7 @@ mod tests {
             args: vec!["-c".into(), format!("read a; printf '%s\\n' '{err}'")],
             env: BTreeMap::new(),
         };
-        match probe_transport(&transport) {
+        match probe_transport(&transport, ProbeBudget::default()) {
             Probe::ModernOk {
                 server,
                 versions,
@@ -650,7 +683,7 @@ mod tests {
             ],
             env: BTreeMap::new(),
         };
-        match probe_transport(&transport) {
+        match probe_transport(&transport, ProbeBudget::default()) {
             Probe::Unreachable(msg) => {
                 assert!(msg.contains("exited"), "{msg}");
                 assert!(msg.contains("fatal: missing module"), "{msg}");
@@ -666,7 +699,7 @@ mod tests {
             args: vec!["-c".into(), "exit 1".into()],
             env: BTreeMap::new(),
         };
-        match probe_transport(&transport) {
+        match probe_transport(&transport, ProbeBudget::default()) {
             Probe::Unreachable(msg) => assert!(msg.contains("exited"), "{msg}"),
             other => panic!("expected Unreachable, got {other:?}"),
         }
@@ -679,7 +712,7 @@ mod tests {
             args: vec![],
             env: BTreeMap::new(),
         };
-        match probe_transport(&transport) {
+        match probe_transport(&transport, ProbeBudget::default()) {
             Probe::Skipped(_) => {}
             other => panic!("expected Skipped, got {other:?}"),
         }
@@ -707,7 +740,7 @@ mod tests {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         let url = format!("http://127.0.0.1:{port}/mcp");
-        match probe_remote(&url) {
+        match probe_remote(&url, ProbeBudget::default()) {
             Probe::Reachable(msg) => assert!(msg.contains("connected"), "{msg}"),
             other => panic!("expected Reachable, got {other:?}"),
         }

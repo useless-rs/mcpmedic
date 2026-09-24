@@ -99,6 +99,13 @@ pub(crate) enum Cmd {
         /// problem category found in this run.
         #[arg(long)]
         explain: bool,
+
+        /// Per-exchange probe budget in milliseconds (default 3000).
+        /// The discover and tools phases scale proportionally —
+        /// raise this for servers with slow cold starts (npx/uvx
+        /// package downloads). Only meaningful with --probe.
+        #[arg(long, requires = "probe", value_name = "MS", default_value_t = 3000)]
+        probe_timeout: u64,
     },
 
     /// Compare the servers of two tools and show the drift.

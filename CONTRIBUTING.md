@@ -613,3 +613,20 @@ One line per improvement cycle: date, what changed, why.
   add minimal --to claude-code`) with the manual add as the
   alternative — the on-ramp message predates the preset feature.
   122 tests (74 unit + 48 e2e).
+- **2026-09-24 · cycle 53 — --probe-timeout.** A configurable probe
+  budget: `mcpmedic doctor --probe --probe-timeout <ms>` scales every
+  probe phase proportionally from the base (default 3000ms keeps
+  the current ratios exactly: discover 1s, handshake 3s, tools 2s,
+  TCP 3s; --probe-timeout 9000 → 3s/9s/6s/9s). The research is
+  damning: claude-code#60224 (16s cold initialize silently dropped —
+  "make the probe timeout configurable"), #84136 (cold starts of
+  65–159s vs a fixed deadline — "a client-side configurable
+  deadline is the only thing that can help"), and fixmcp's
+  --timeout precedent. mcpmedic's parallel probes keep the
+  wall-clock bounded even with a raised budget. A ProbeBudget
+  struct (Copy, Default = 3000ms, saturating math) threads through
+  the whole probe chain; the timeout message is now budget-aware
+  ("within Ns") and the fix_hint matcher is budget-agnostic. The
+  slow-server e2e proves both directions: a 4.5s sleeper misses
+  the default budget and lands with --probe-timeout 10000.
+  123 tests (74 unit + 49 e2e).

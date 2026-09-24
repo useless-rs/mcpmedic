@@ -1389,3 +1389,45 @@ fn diff_json_reports_drift_buckets() {
     assert_eq!(different.len(), 1);
     assert_eq!(different[0]["name"], "shared");
 }
+
+#[test]
+fn doctor_probe_timeout_extends_the_budget() {
+    let home = temp_home("probe-timeout");
+    let resp = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"slow-srv","version":"1.0"}}}"#;
+    let script = format!("read a; sleep 4.5; printf '%s\\n' '{resp}'; read b; read c");
+    std::fs::write(
+        home.join(".claude.json"),
+        format!(
+            r#"{{"mcpServers":{{"slow":{{"command":"sh","args":["-c",{}]}}}}}}"#,
+            serde_json::to_string(&script).unwrap()
+        ),
+    )
+    .unwrap();
+    let out = run(
+        &home,
+        &["--json", "doctor", "--probe", "--tool", "claude-code"],
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("slow startup is common"),
+        "default budget should miss: {stdout}"
+    );
+    let out = run(
+        &home,
+        &[
+            "--json",
+            "doctor",
+            "--probe",
+            "--probe-timeout",
+            "10000",
+            "--tool",
+            "claude-code",
+        ],
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("MCP handshake ok"),
+        "raised budget should land: {stdout}"
+    );
+    assert!(stdout.contains("slow-srv"), "{stdout}");
+}

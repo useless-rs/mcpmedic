@@ -119,7 +119,17 @@ pub(crate) fn run(cli: crate::cli::Cli) -> ExitCode {
             dry_run,
             probe,
             explain,
-        } => cmd_doctor(&ctx, tool.as_deref(), strict, fix, dry_run, probe, explain),
+            probe_timeout,
+        } => cmd_doctor(
+            &ctx,
+            tool.as_deref(),
+            strict,
+            fix,
+            dry_run,
+            probe,
+            explain,
+            probe_timeout,
+        ),
         Cmd::Diff { a, b } => cmd_diff(&ctx, &a, &b),
         Cmd::Add {
             name,
@@ -681,7 +691,7 @@ fn fix_hint(message: &str) -> Option<&'static str> {
     if message.contains("unreachable: connect failed") {
         return Some("check the URL, the port and whether the endpoint is up");
     }
-    if message.contains("no MCP initialize response within 3s") {
+    if message.contains("no MCP initialize response within") {
         return Some(
             "slow startup is common with npx — run your IDE once to warm the npm cache, then re-probe",
         );
@@ -692,7 +702,7 @@ fn fix_hint(message: &str) -> Option<&'static str> {
     None
 }
 
-fn probe_findings(loads: &[ToolLoad]) -> Vec<doctor::Finding> {
+fn probe_findings(loads: &[ToolLoad], budget: crate::probe::ProbeBudget) -> Vec<doctor::Finding> {
     let mut jobs = Vec::new();
     for load in loads {
         let ConfigState::Loaded(cfg) = &load.state else {
@@ -710,7 +720,7 @@ fn probe_findings(loads: &[ToolLoad]) -> Vec<doctor::Finding> {
             .iter()
             .map(|(tool, name, transport)| {
                 s.spawn(move || {
-                    let (severity, message) = match crate::probe::probe_transport(transport) {
+                    let (severity, message) = match crate::probe::probe_transport(transport, budget) {
                         crate::probe::Probe::McpOk {
                             server,
                             protocol,
@@ -770,6 +780,7 @@ fn probe_findings(loads: &[ToolLoad]) -> Vec<doctor::Finding> {
 
 #[expect(clippy::too_many_lines)]
 #[expect(clippy::fn_params_excessive_bools)]
+#[expect(clippy::too_many_arguments)]
 fn cmd_doctor(
     ctx: &Ctx,
     tool: Option<&str>,
@@ -778,6 +789,7 @@ fn cmd_doctor(
     dry_run: bool,
     probe: bool,
     explain: bool,
+    probe_timeout: u64,
 ) -> ExitCode {
     let specs: Vec<&'static ToolSpec> = match tool {
         Some(name) => match resolve(name) {
@@ -806,7 +818,10 @@ fn cmd_doctor(
     }
 
     if probe {
-        findings.extend(probe_findings(&loads));
+        findings.extend(probe_findings(
+            &loads,
+            crate::probe::ProbeBudget::from_base(probe_timeout),
+        ));
     }
 
     if ctx.json {
