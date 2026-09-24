@@ -12,7 +12,6 @@ use crate::diff;
 use crate::doctor::{self, Severity, ToolLoad};
 use crate::format_fix;
 use crate::model::Servers;
-use crate::probe;
 use crate::registry::ToolSpec;
 use crate::report;
 use crate::store::{ConfigState, RawDoc};

@@ -12,7 +12,6 @@ use crate::cli::Cmd;
 use crate::commands_ctx::{Ctx, commit, display_path, fail, print_json, resolve};
 use crate::commands_doctor::{cmd_diff, cmd_doctor};
 use crate::commands_read::{cmd_list, cmd_scan, cmd_show};
-use crate::diff;
 use crate::doctor::{self, Severity, ToolLoad};
 use crate::format::{self, Format};
 use crate::format_fix;
