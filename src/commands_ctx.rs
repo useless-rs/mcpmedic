@@ -9,7 +9,7 @@ use serde_json::Value;
 
 use crate::registry::{EnvOverrides, ToolSpec};
 use crate::report;
-use crate::store::{self, ConfigState};
+use crate::store::{self, ConfigState, RawDoc};
 
 /// Everything commands need to operate, resolved once.
 pub(crate) struct Ctx {
@@ -103,4 +103,19 @@ pub(crate) fn display_path(path: &Path, home: &Path) -> String {
         Ok(rel) => format!("~/{}", rel.display()),
         Err(_) => path.display().to_string(),
     }
+}
+
+/// Persist a mutated config (with automatic backup) unless this is a dry run.
+pub(crate) fn commit(
+    ctx: &Ctx,
+    spec: &ToolSpec,
+    raw: &RawDoc,
+    dry_run: bool,
+) -> Result<Option<PathBuf>, String> {
+    if dry_run {
+        return Ok(None);
+    }
+    let path = ctx.path(spec);
+    store::persist(&path, &raw.serialize(), spec.id.as_str(), &ctx.home)
+        .map_err(|e| format!("failed to write {}: {e}", path.display()))
 }
